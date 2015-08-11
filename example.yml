@@ -1,6 +1,7 @@
 buffer: 128
 layers:
 - name: "roads"
+  clip: true
   queries:
     - minzoom: 12
       maxzoom: 20

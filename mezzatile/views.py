@@ -14,8 +14,8 @@ import mapbox_vector_tile
 
 class ServeTile(View):
 
-    SQL_TEMPLATE = "SELECT {geometry}, * FROM ({sql}) AS data WHERE way && {bbox}"  # noqa
-    GEOMETRY = "way"  # noqa
+    SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE way && {bbox}"  # noqa
+    GEOMETRY = "{way}"
     methods = ['GET']
     RADIUS = 6378137
     CIRCUM = 2 * math.pi * RADIUS
@@ -55,23 +55,28 @@ class ServeTile(View):
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 
+    def key(self, name, default, query, layer):
+        return query.get(name, layer.get(name, LAYERS.get(name, default)))
+
     def sql(self, query, layer):
         srid = query.get('srid', '900913')
         bbox = 'ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}), ST_MakePoint({east}, {north})), {srid})'  # noqa
         bbox = bbox.format(west=self.west, south=self.south, east=self.east,
                            north=self.north, srid=srid)
         pixel_width = self.CIRCUM / (self.SIZE * self.scale) / 2 ** self.zoom
-        buffer = query.get('buffer',
-                           layer.get('buffer',
-                                     LAYERS.get('buffer', 0)))
+        buffer = self.key('buffer', 0, query, layer)
         if buffer:
             units = buffer * pixel_width
             bbox = 'ST_Expand({bbox}, {units})'.format(bbox=bbox, units=units)
+        geometry = self.geometry
+        clip = self.key('clip', False, query, layer)
+        if clip:
+            geometry = geometry.format(way='ST_Intersection({way}, {bbox})')
+        geometry = geometry.format(way='way', bbox=bbox)
         sql = query['sql'].replace('!bbox!', bbox)
         sql = sql.replace('!zoom!', str(self.zoom))
         sql = sql.replace('!pixel_width!', str(pixel_width))
-        return self.SQL_TEMPLATE.format(geometry=self.geometry, sql=sql,
-                                        bbox=bbox)
+        return self.SQL_TEMPLATE.format(way=geometry, sql=sql, bbox=bbox)
 
     def to_layer(self, layer, features):
         return {
@@ -120,7 +125,7 @@ app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.mvt',
 
 class ServeJSON(ServeTile):
 
-    GEOMETRY = "ST_AsGeoJSON(ST_Transform(way, 4326)) as _way"  # noqa
+    GEOMETRY = "ST_AsGeoJSON(ST_Transform({way}, 4326)) as _way"  # noqa
     CONTENT_TYPE = 'application/json'
 
     def post_process(self):
