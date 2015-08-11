@@ -1,0 +1,5 @@
+Flask==0.10.1
+PyYAML==3.11
+mapbox-vector-tile==0.0.11
+mercantile==0.8.2
+psycopg2==2.6.1
