@@ -94,7 +94,9 @@ class ServeTile(View):
         }
 
     def row_to_dict(self, row):
-        return dict(i for i in row.items() if not i[0].startswith('_'))
+        def f(item):
+            return not item[0].startswith('_') and item[0] != 'way'
+        return dict(i for i in row.items() if f(i))
 
     def process_geometry(self, geometry):
         return geometry
