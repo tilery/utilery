@@ -52,3 +52,5 @@ with app.app_context():
     with open(app.config['LAYERSPATH']) as f:
         LAYERS = yaml.load(f.read())
 
+# Import views to make Flask know about them
+import utilery.views  # noqa
