@@ -21,9 +21,10 @@ class ServeTile(View):
     CIRCUM = 2 * math.pi * RADIUS
     SIZE = 256
 
-    def dispatch_request(self, layers, z, x, y):
+    def dispatch_request(self, names, z, x, y):
         self.zoom = z
-        self.names = layers
+        self.ALL = names == 'all'
+        self.names = names.split('+')
         self.x = x
         self.y = y
         return self.serve()
@@ -35,6 +36,8 @@ class ServeTile(View):
         self.layers = []
         self.scale = LAYERS.get('scale', 1)
         for layer in LAYERS['layers']:
+            if not self.ALL and layer['name'] not in self.names:
+                continue
             layer_data = self.query_layer(layer)
             self.add_layer_data(layer_data)
         self.post_process()
@@ -109,9 +112,9 @@ class ServePBF(ServeTile):
         self.content = mapbox_vector_tile.encode(self.layers)
 
 serve_pbf = ServePBF.as_view('serve_pbf')
-app.add_url_rule('/<layers>/<int:z>/<int:x>/<int:y>.pbf',
+app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.pbf',
                  view_func=serve_pbf)
-app.add_url_rule('/<layers>/<int:z>/<int:x>/<int:y>.mvt',
+app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.mvt',
                  view_func=serve_pbf)
 
 
@@ -126,7 +129,7 @@ class ServeJSON(ServeTile):
     def process_geometry(self, geometry):
         return json.loads(geometry)
 
-app.add_url_rule('/<layers>/<int:z>/<int:x>/<int:y>.json',
+app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.json',
                  view_func=ServeJSON.as_view('servejson'))
 
 
@@ -150,5 +153,5 @@ class ServeGeoJSON(ServeJSON):
             "features": self.layers
         })
 
-app.add_url_rule('/<layers>/<int:z>/<int:x>/<int:y>.geojson',
+app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.geojson',
                  view_func=ServeGeoJSON.as_view('servegeojson'))
