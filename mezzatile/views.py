@@ -59,7 +59,7 @@ class ServeTile(View):
         return query.get(name, layer.get(name, LAYERS.get(name, default)))
 
     def sql(self, query, layer):
-        srid = query.get('srid', '900913')
+        srid = self.key('srid', '900913', query, layer)
         bbox = 'ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}), ST_MakePoint({east}, {north})), {srid})'  # noqa
         bbox = bbox.format(west=self.west, south=self.south, east=self.east,
                            north=self.north, srid=srid)
@@ -90,8 +90,11 @@ class ServeTile(View):
     def to_feature(self, row, layer):
         return {
             "geometry": self.process_geometry(row['_way']),
-            "properties": dict(row.items())
+            "properties": self.row_to_dict(row)
         }
+
+    def row_to_dict(self, row):
+        return dict(i for i in row.items() if not i[0].startswith('_'))
 
     def process_geometry(self, geometry):
         return geometry
