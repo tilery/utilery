@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from codecs import open  # To use a consistent encoding
 from os import path
 
-import mezzatile
+import utilery
 
 here = path.abspath(path.dirname(__file__))
 
@@ -18,13 +18,13 @@ with open('requirements.txt', encoding='utf-8') as reqs:
     install_requires = [l for l in reqs.read().split('\n') if is_pkg(l)]
 
 setup(
-    name='mezzatile',
-    version=mezzatile.__version__,
-    description=mezzatile.__doc__,
+    name='utilery',
+    version=utilery.__version__,
+    description=utilery.__doc__,
     long_description=long_description,
-    url=mezzatile.__homepage__,
-    author=mezzatile.__author__,
-    author_email=mezzatile.__contact__,
+    url=utilery.__homepage__,
+    author=utilery.__author__,
+    author_email=utilery.__contact__,
     license='WTFPL',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers

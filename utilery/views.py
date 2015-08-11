@@ -6,7 +6,7 @@ import math
 
 from flask.views import View
 
-from . import app, DB, LAYERS
+from .core import app, DB, LAYERS
 
 import mercantile
 import mapbox_vector_tile

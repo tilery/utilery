@@ -1,3 +1,3 @@
-# Mezzatile
+# utilery
 
-Easy vector tile manufacturing from PostGIS.
+Micro vector tile manufacturing from PostGIS.

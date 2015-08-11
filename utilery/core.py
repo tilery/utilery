@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-"Easy vector tile manufacturing from PostGIS."
 
 import psycopg2
 import psycopg2.extras
@@ -8,16 +7,9 @@ import yaml
 
 from flask import Flask, g
 
-VERSION = (0, 0, 1)
-
-__author__ = 'Yohan Boniface'
-__contact__ = "yohan.boniface@data.gouv.fr"
-__homepage__ = "https://github.com/etalab/mezzatile"
-__version__ = ".".join(map(str, VERSION))
-
 app = Flask(__name__)
-app.config.from_object('mezzatile.default')
-app.config.from_envvar('MEZZATILE_SETTINGS', silent=True)
+app.config.from_object('utilery.default')
+app.config.from_envvar('UTILERY_SETTINGS', silent=True)
 
 if app.debug:
     if not app.config.get('SECRET_KEY'):
@@ -60,6 +52,3 @@ with app.app_context():
     with open(app.config['LAYERSPATH']) as f:
         LAYERS = yaml.load(f.read())
 
-
-# Import views to make Flask know about them
-import mezzatile.views  # noqa
