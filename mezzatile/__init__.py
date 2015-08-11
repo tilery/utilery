@@ -5,7 +5,7 @@ import psycopg2.extras
 import yaml
 # from pathlib import Path
 
-from flask import Flask, g, _app_ctx_stack as stack
+from flask import Flask, g
 
 app = Flask(__name__)
 app.config.from_object('mezzatile.default')
@@ -19,16 +19,22 @@ if app.debug:
 
 class DB(object):
 
-    @classmethod
-    def connect(cls):
-        db = getattr(g, '_database', None)
-        if db is None:
-            db = g._database = psycopg2.connect(app.config['DATABASE'])
-        return db
+    DEFAULT = "default"
 
     @classmethod
-    def fetchall(cls, query, args=None):
-        cur = DB.connect().cursor(cursor_factory=psycopg2.extras.DictCursor)
+    def connect(cls, dbname=None):
+        db = getattr(g, '_connexions', None)
+        if db is None:
+            db = g._connexions = {}
+        dbname = dbname or cls.DEFAULT
+        if dbname not in db:
+            db[dbname] = psycopg2.connect(app.config['DATABASES'][dbname])
+        return db[dbname]
+
+    @classmethod
+    def fetchall(cls, query, args=None, dbname=None):
+        cur = DB.connect(dbname).cursor(
+                                cursor_factory=psycopg2.extras.DictCursor)
         cur.execute(query, args)
         rv = cur.fetchall()
         cur.close()
@@ -37,9 +43,10 @@ class DB(object):
 
 @app.teardown_appcontext
 def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+    c = getattr(g, '_connexions', None)
+    if c is not None:
+        for db in c.values():
+            db.close()
 
 
 with open('example.yml') as f:

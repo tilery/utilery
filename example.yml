@@ -1,3 +1,4 @@
+buffer: 128
 layers:
 - name: "roads"
   queries:

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import math
 # from pathlib import Path
 
 from flask.views import View
@@ -16,6 +17,9 @@ class ServeTile(View):
     SQL_TEMPLATE = "SELECT {geometry}, * FROM ({sql}) AS data WHERE way && {bbox}"  # noqa
     GEOMETRY = "way"  # noqa
     methods = ['GET']
+    RADIUS = 6378137
+    CIRCUM = 2 * math.pi * RADIUS
+    SIZE = 256
 
     def dispatch_request(self, layers, z, x, y):
         self.zoom = z
@@ -29,6 +33,7 @@ class ServeTile(View):
         self.west, self.south = mercantile.xy(bounds.west, bounds.south)
         self.east, self.north = mercantile.xy(bounds.east, bounds.north)
         self.layers = []
+        self.scale = LAYERS.get('scale', 1)
         for layer in LAYERS['layers']:
             layer_data = self.query_layer(layer)
             self.add_layer_data(layer_data)
@@ -38,21 +43,32 @@ class ServeTile(View):
 
     def query_layer(self, layer):
         features = []
-        srid = '900913'
+        for query in layer['queries']:
+            if self.zoom < query.get('minzoom', 0) \
+               or self.zoom > query.get('maxzoom', 22):
+                continue
+            rows = DB.fetchall(self.sql(query, layer),
+                               dbname=query.get('dbname'))
+            features += [self.to_feature(row, layer) for row in rows]
+        return self.to_layer(layer, features)
+
+    def sql(self, query, layer):
+        srid = query.get('srid', '900913')
         bbox = 'ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}), ST_MakePoint({east}, {north})), {srid})'  # noqa
         bbox = bbox.format(west=self.west, south=self.south, east=self.east,
                            north=self.north, srid=srid)
-        for query in layer['queries']:
-            if self.zoom < query['minzoom'] or self.zoom > query['maxzoom']:
-                continue
-            sql = query['sql'].replace('!bbox!', bbox)
-            sql = sql.replace('!zoom!', str(self.zoom))
-            sql = self.SQL_TEMPLATE.format(
-                geometry=self.geometry,
-                sql=sql,
-                bbox=bbox)
-            features += [self.to_feature(r, layer) for r in DB.fetchall(sql)]
-        return self.to_layer(layer, features)
+        pixel_width = self.CIRCUM / (self.SIZE * self.scale) / 2 ** self.zoom
+        buffer = query.get('buffer',
+                           layer.get('buffer',
+                                     LAYERS.get('buffer', 0)))
+        if buffer:
+            units = buffer * pixel_width
+            bbox = 'ST_Expand({bbox}, {units})'.format(bbox=bbox, units=units)
+        sql = query['sql'].replace('!bbox!', bbox)
+        sql = sql.replace('!zoom!', str(self.zoom))
+        sql = sql.replace('!pixel_width!', str(pixel_width))
+        return self.SQL_TEMPLATE.format(geometry=self.geometry, sql=sql,
+                                        bbox=bbox)
 
     def to_layer(self, layer, features):
         return {
