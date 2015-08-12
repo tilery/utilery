@@ -17,6 +17,9 @@ if app.debug:
     app.config['TESTING'] = True
 
 
+LAYERS = {}
+
+
 class DB(object):
 
     DEFAULT = "default"
@@ -48,9 +51,23 @@ def close_connection(exception):
         for db in c.values():
             db.close()
 
+
+def load_source(source):
+    metadata = dict(source)
+    del metadata['layers']  # Avoid recursion.
+    for original in source['layers']:
+        layer = metadata  # Add source values as default to layer.
+        layer.update(original)
+        LAYERS[layer['name']] = dict(layer)
+
+
 with app.app_context():
-    with open(app.config['LAYERSPATH']) as f:
-        LAYERS = yaml.load(f.read())
+    sources = app.config['LAYERS_SOURCES']
+    if isinstance(sources, basestring):
+        sources = [sources]
+    for path in sources:
+        with open(path) as f:
+            load_source(yaml.load(f.read()))
 
 # Import views to make Flask know about them
 import utilery.views  # noqa

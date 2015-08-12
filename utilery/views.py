@@ -4,6 +4,7 @@ import json
 import math
 # from pathlib import Path
 
+from flask import abort
 from flask.views import View
 
 from .core import app, DB, LAYERS
@@ -34,11 +35,11 @@ class ServeTile(View):
         self.west, self.south = mercantile.xy(bounds.west, bounds.south)
         self.east, self.north = mercantile.xy(bounds.east, bounds.north)
         self.layers = []
-        self.scale = LAYERS.get('scale', 1)
-        for layer in LAYERS['layers']:
-            if not self.ALL and layer['name'] not in self.names:
-                continue
-            layer_data = self.query_layer(layer)
+        names = LAYERS.keys() if self.ALL else self.names
+        for name in names:
+            if name not in LAYERS:
+                abort(400, u'Layer "{}" not found'.format(name))
+            layer_data = self.query_layer(LAYERS[name])
             self.add_layer_data(layer_data)
         self.post_process()
 
@@ -56,14 +57,15 @@ class ServeTile(View):
         return self.to_layer(layer, features)
 
     def key(self, name, default, query, layer):
-        return query.get(name, layer.get(name, LAYERS.get(name, default)))
+        return query.get(name, layer.get(name, default))
 
     def sql(self, query, layer):
         srid = self.key('srid', '900913', query, layer)
         bbox = 'ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}), ST_MakePoint({east}, {north})), {srid})'  # noqa
         bbox = bbox.format(west=self.west, south=self.south, east=self.east,
                            north=self.north, srid=srid)
-        pixel_width = self.CIRCUM / (self.SIZE * self.scale) / 2 ** self.zoom
+        scale = self.key('scale', 1, query, layer)
+        pixel_width = self.CIRCUM / (self.SIZE * scale) / 2 ** self.zoom
         buffer = self.key('buffer', 0, query, layer)
         if buffer:
             units = buffer * pixel_width
