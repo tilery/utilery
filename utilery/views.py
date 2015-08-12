@@ -14,7 +14,7 @@ import mapbox_vector_tile
 
 class ServeTile(View):
 
-    SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE way && {bbox}"  # noqa
+    SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE ST_Intersects(way, {bbox})"  # noqa
     GEOMETRY = "{way}"
     methods = ['GET']
     RADIUS = 6378137
