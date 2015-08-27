@@ -65,8 +65,11 @@ def close_connection(exception):
 
 
 def load_recipe(data):
-    RECIPES[data['name']] = Recipe(data)
-    if len(RECIPES) == 1:
+    name = data.get('name', 'default')
+    if name in RECIPES:
+        raise ValueError('Recipe with name {} already exist'.format(name))
+    RECIPES[name] = Recipe(data)
+    if len(RECIPES) == 1 and name != 'default':
         RECIPES['default'] = RECIPES[data['name']]
 
 
