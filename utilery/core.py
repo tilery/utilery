@@ -51,8 +51,7 @@ class DB(object):
         rv = cur.fetchall()
         cur.close()
         after = time.time()
-        logger.debug('*' * 40,)
-        logger.debug('%s => %s', query, (after - before) * 1000)
+        logger.debug('%s => %s\n%s', query, (after - before) * 1000, '*' * 40)
         return rv
 
 

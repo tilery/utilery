@@ -65,7 +65,7 @@ class ServeTile(View):
                or self.zoom > query.get('maxzoom', 22):
                 continue
             rows = DB.fetchall(self.sql(query),
-                               dbname=query.get('dbname'))
+                               dbname=query.dbname)
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 
