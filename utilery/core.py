@@ -62,22 +62,23 @@ def close_connection(exception):
             db.close()
 
 
-def load_source(source):
-    metadata = dict(source)
+def load_recipe(recipe):
+    metadata = dict(recipe)
     del metadata['layers']  # Avoid recursion.
-    for original in source['layers']:
+    for original in recipe['layers']:
         layer = metadata  # Add source values as default to layer.
         layer.update(original)
-        LAYERS[layer['name']] = dict(layer)
+        key = '{}:{}'.format(recipe['name'], layer['name'])
+        LAYERS[key] = dict(layer)
 
 
 with app.app_context():
-    sources = app.config['LAYERS_SOURCES']
-    if isinstance(sources, str):
-        sources = [sources]
-    for path in sources:
-        with Path(path).open() as f:
-            load_source(yaml.load(f.read()))
+    recipes = app.config['RECIPES']
+    if isinstance(recipes, str):
+        recipes = [recipes]
+    for recipe in recipes:
+        with Path(recipe).open() as f:
+            load_recipe(yaml.load(f.read()))
 
 # Import views to make Flask know about them
 import utilery.views  # noqa

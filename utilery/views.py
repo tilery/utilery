@@ -37,6 +37,8 @@ class ServeTile(View):
         self.layers = []
         names = LAYERS.keys() if self.ALL else self.names
         for name in names:
+            if ':' not in name:
+                name = 'default:%s' % name
             if name not in LAYERS:
                 abort(400, u'Layer "{}" not found'.format(name))
             layer_data = self.query_layer(LAYERS[name])
