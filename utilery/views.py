@@ -7,7 +7,7 @@ import math
 from flask import abort
 from flask.views import View
 
-from .core import app, DB, LAYERS
+from .core import app, DB, RECIPES
 
 import mercantile
 import mapbox_vector_tile
@@ -24,7 +24,6 @@ class ServeTile(View):
 
     def dispatch_request(self, names, z, x, y):
         self.zoom = z
-        self.ALL = names == 'all'
         self.names = names.split('+')
         self.x = x
         self.y = y
@@ -35,46 +34,52 @@ class ServeTile(View):
         self.west, self.south = mercantile.xy(bounds.west, bounds.south)
         self.east, self.north = mercantile.xy(bounds.east, bounds.north)
         self.layers = []
-        names = LAYERS.keys() if self.ALL else self.names
-        for name in names:
-            if ':' not in name:
-                name = 'default:%s' % name
-            if name not in LAYERS:
-                abort(400, u'Layer "{}" not found'.format(name))
-            layer_data = self.query_layer(LAYERS[name])
-            self.add_layer_data(layer_data)
+        for name in self.names:
+            if ':' in name:
+                namespace, name = name.split(':')
+            else:
+                namespace = 'default'
+            if namespace not in RECIPES:
+                abort(400, u'Recipe "{}" not found'.format(namespace))
+            recipe = RECIPES[namespace]
+            if name == 'all':
+                for layer in recipe.layers.values():
+                    self.process_layer(layer)
+            else:
+                if name not in recipe.layers:
+                    abort(400, u'Layer "{}" not found in reicpe {}'.format(
+                        name, namespace))
+                self.process_layer(recipe.layers[name])
         self.post_process()
 
         return self.content, 200, {"Content-Type": self.CONTENT_TYPE}
 
+    def process_layer(self, layer):
+        layer_data = self.query_layer(layer)
+        self.add_layer_data(layer_data)
+
     def query_layer(self, layer):
         features = []
-        for query in layer['queries']:
+        for query in layer.queries:
             if self.zoom < query.get('minzoom', 0) \
                or self.zoom > query.get('maxzoom', 22):
                 continue
-            rows = DB.fetchall(self.sql(query, layer),
+            rows = DB.fetchall(self.sql(query),
                                dbname=query.get('dbname'))
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 
-    def key(self, name, default, query, layer):
-        return query.get(name, layer.get(name, default))
-
-    def sql(self, query, layer):
-        srid = self.key('srid', '900913', query, layer)
+    def sql(self, query):
+        srid = query.srid
         bbox = 'ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}), ST_MakePoint({east}, {north})), {srid})'  # noqa
         bbox = bbox.format(west=self.west, south=self.south, east=self.east,
                            north=self.north, srid=srid)
-        scale = self.key('scale', 1, query, layer)
-        pixel_width = self.CIRCUM / (self.SIZE * scale) / 2 ** self.zoom
-        buffer = self.key('buffer', 0, query, layer)
-        if buffer:
-            units = buffer * pixel_width
+        pixel_width = self.CIRCUM / (self.SIZE * query.scale) / 2 ** self.zoom
+        if query.buffer:
+            units = query.buffer * pixel_width
             bbox = 'ST_Expand({bbox}, {units})'.format(bbox=bbox, units=units)
         geometry = self.geometry
-        clip = self.key('clip', False, query, layer)
-        if clip:
+        if query.clip:
             geometry = geometry.format(way='ST_Intersection({way}, {bbox})')
         geometry = geometry.format(way='way', bbox=bbox)
         sql = query['sql'].replace('!bbox!', bbox)

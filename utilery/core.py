@@ -8,6 +8,8 @@ from pathlib import Path
 
 from flask import Flask, g
 
+from .models import Recipe
+
 app = Flask(__name__)
 app.config.from_object('utilery.default')
 app.config.from_envvar('UTILERY_SETTINGS', silent=True)
@@ -23,7 +25,7 @@ if app.debug:
     logger.addHandler(logging.StreamHandler())
 
 
-LAYERS = {}
+RECIPES = {}
 
 
 class DB(object):
@@ -62,14 +64,10 @@ def close_connection(exception):
             db.close()
 
 
-def load_recipe(recipe):
-    metadata = dict(recipe)
-    del metadata['layers']  # Avoid recursion.
-    for original in recipe['layers']:
-        layer = metadata  # Add source values as default to layer.
-        layer.update(original)
-        key = '{}:{}'.format(recipe['name'], layer['name'])
-        LAYERS[key] = dict(layer)
+def load_recipe(data):
+    RECIPES[data['name']] = Recipe(data)
+    if len(RECIPES) == 1:
+        RECIPES['default'] = RECIPES[data['name']]
 
 
 with app.app_context():

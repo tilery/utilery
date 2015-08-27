@@ -1,5 +1,6 @@
 from flask import url_for
 
+from utilery.models import Layer
 from .utils import copy
 
 
@@ -42,12 +43,13 @@ def test_can_omit_default_namespace(client, fetchall):
     assert resp.status_code == 200
 
 
-def test_can_ask_several_layers(client, fetchall, layers):
+def test_can_ask_several_layers(client, fetchall, recipes):
 
     fetchall([])
-    layer = copy(layers['default:mylayer'])
+    layer = Layer(recipes['default'],
+                  copy(recipes['default'].layers['mylayer']))
     layer['name'] = 'other'
-    layers['default:other'] = layer
+    recipes['default'].layers['other'] = layer
 
     resp = client.get(url_for('serve_pbf', names='mylayer+other', z=0, x=0,
                               y=0))

@@ -1,6 +1,7 @@
 import pytest
 
 from utilery import core
+from utilery.models import Layer, Recipe
 from .utils import copy
 
 
@@ -8,15 +9,18 @@ def pytest_configure(config):
     core.app.config['DATABASE'] = ':memory:'
     core.app.config['TESTING'] = True
     core.app.config['RECIPES'] = []
-    core.LAYERS['default:mylayer'] = {
-        'name': 'mylayer',
-        'queries': [
-            {
-                'sql': 'SELECT geometry AS way, type, name FROM osm_landusages_gen0',  # noqa
-                'maxzoom': 9
-            }
-        ]
-    }
+    core.RECIPES['default'] = Recipe({
+        'name': 'default',
+        'layers': [{
+            'name': 'mylayer',
+            'queries': [
+                {
+                    'sql': 'SELECT geometry AS way, type, name FROM osm_landusages_gen0',  # noqa
+                    'maxzoom': 9
+                }
+            ]
+        }]
+    })
 
 
 @pytest.fixture
@@ -63,13 +67,14 @@ class MonkeyPatchWrapper(object):
 
 
 @pytest.fixture
-def layers(request, monkeypatch):
+def recipes(request, monkeypatch):
 
-    return MonkeyPatchWrapper(monkeypatch, core.LAYERS)
+    return MonkeyPatchWrapper(monkeypatch, core.RECIPES)
 
 
 @pytest.fixture
-def layer(layers):
-    layer = copy(layers['default:mylayer'])
-    layers['default:mylayer'] = layer
+def layer(recipes):
+    recipe = Recipe(copy(recipes['default']))
+    recipes['default'] = recipe
+    layer = recipe.layers['mylayer']
     return layer
