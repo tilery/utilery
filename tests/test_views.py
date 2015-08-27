@@ -1,6 +1,8 @@
+import json
+
 from flask import url_for
 
-from utilery.models import Layer
+from utilery.models import Layer, Recipe
 from .utils import copy
 
 
@@ -46,10 +48,11 @@ def test_can_omit_default_namespace(client, fetchall):
 def test_can_ask_several_layers(client, fetchall, recipes):
 
     fetchall([])
-    layer = Layer(recipes['default'],
-                  copy(recipes['default'].layers['mylayer']))
+    recipe = Recipe(copy(recipes['default']))
+    layer = Layer(recipe, copy(recipes['default'].layers['mylayer']))
     layer['name'] = 'other'
-    recipes['default'].layers['other'] = layer
+    recipe.layers['other'] = layer
+    recipes['default'] = recipe
 
     resp = client.get(url_for('serve_pbf', names='mylayer+other', z=0, x=0,
                               y=0))
@@ -120,3 +123,13 @@ def test_add_buffer_when_asked(client, fetchall, layer):
     fetchall([], check_query)
 
     assert client.get(url_for('serve_pbf', names='all', z=0, x=0, y=0))
+
+
+def test_tilejson(client, config):
+    config['TILEJSON']['name'] = "testname"
+    resp = client.get(url_for('tilejson'))
+    assert resp.status_code == 200
+    data = json.loads(resp.data.decode())
+    assert data['name'] == "testname"
+    assert "vector_layers" in data
+    assert data['vector_layers'][0]['id'] == 'default:mylayer'

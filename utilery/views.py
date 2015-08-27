@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import json
 import math
-# from pathlib import Path
 
 from flask import abort
 from flask.views import View
@@ -174,3 +171,16 @@ class ServeGeoJSON(ServeJSON):
 
 app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.geojson',
                  view_func=ServeGeoJSON.as_view('servegeojson'))
+
+
+@app.route('/tilejson/mvt.json')
+def tilejson():
+    base = app.config['TILEJSON']
+    base['vector_layers'] = []
+    for recipe in RECIPES.values():
+        for layer in recipe.layers.values():
+            base['vector_layers'].append({
+                "description": layer.description,
+                "id": layer.id
+            })
+    return json.dumps(base)

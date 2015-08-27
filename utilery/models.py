@@ -35,6 +35,10 @@ class Layer(dict):
     def __getattr__(self, attr):
         return self.get(attr, getattr(self.recipe, attr))
 
+    @property
+    def id(self):
+        return '{}:{}'.format(self.recipe.name, self.name)
+
 
 class Query(dict):
 
