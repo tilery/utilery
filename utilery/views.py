@@ -1,6 +1,8 @@
 import json
 import math
 
+import psycopg2
+
 from flask import abort
 from flask.views import View
 
@@ -61,8 +63,10 @@ class ServeTile(View):
             if self.zoom < query.get('minzoom', 0) \
                or self.zoom > query.get('maxzoom', 22):
                 continue
-            rows = DB.fetchall(self.sql(query),
-                               dbname=query.dbname)
+            try:
+                rows = DB.fetchall(self.sql(query), dbname=query.dbname)
+            except psycopg2.ProgrammingError as e:
+                abort(500, str(e))
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 
