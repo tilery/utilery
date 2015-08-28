@@ -65,7 +65,7 @@ class ServeTile(View):
                 continue
             try:
                 rows = DB.fetchall(self.sql(query), dbname=query.dbname)
-            except psycopg2.ProgrammingError as e:
+            except (psycopg2.ProgrammingError, psycopg2.InternalError) as e:
                 abort(500, str(e))
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
