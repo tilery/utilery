@@ -63,10 +63,14 @@ class ServeTile(View):
             if self.zoom < query.get('minzoom', 0) \
                or self.zoom > query.get('maxzoom', 22):
                 continue
+            sql = self.sql(query)
             try:
-                rows = DB.fetchall(self.sql(query), dbname=query.dbname)
+                rows = DB.fetchall(sql, dbname=query.dbname)
             except (psycopg2.ProgrammingError, psycopg2.InternalError) as e:
-                abort(500, str(e))
+                msg = str(e)
+                if app.debug:
+                    msg = "{} ** Query was: {}".format(msg, sql)
+                abort(500, msg)
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 
