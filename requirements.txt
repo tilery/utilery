@@ -1,5 +1,6 @@
 Flask==0.10.1
 PyYAML==3.11
+git+https://github.com/mapzen/mapbox-vector-tile
 mercantile==0.8.2
 protobuf==3.0.0a3
 psycopg2==2.6.1
