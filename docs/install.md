@@ -33,8 +33,7 @@ because some Python dependencies are not released yet in pypi.
 
 1. Install unstable python dependencies:
 
-        pip install git+https://github.com/mapzen/mapbox-vector-tile
-        pip install protobuf==3.0.0a3
+        pip install -r requirements.txt
 
 
 
