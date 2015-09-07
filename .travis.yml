@@ -1,0 +1,27 @@
+language: python
+python:
+- '3.4'
+before_install:
+  # Needed for shapely
+  - sudo add-apt-repository -y ppa:ubuntugis/ppa
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq libgeos-dev python-numpy
+  - pip install --install-option="--no-cython-compile" cython
+install:
+- pip install -r requirements.txt
+- pip install -r requirements-dev.txt
+script: py.test
+notifications:
+  irc:
+    channels:
+    - irc.freenode.net#etalab
+    on_success: change
+    on_failure: always
+  email: false
+deploy:
+  provider: pypi
+  user: ybon
+  password:
+    secure: VktWHqVC+63JpFSJUGvuyQjVIPb3ocaRAejYSAxwwIkPKdMiFXd0Wv6IIq7PMqJzkMWtHPU/nSJMfzuoTA5Dxl556/jt1gFTD0NfKRsxlThcosZU/8kJ7SHRkjKPWwATySCAU8owHtuXbcmRCpB/9sImE3AKQpHh/J+BvByB1J8=
+  on:
+    tags: true
