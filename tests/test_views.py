@@ -32,16 +32,35 @@ def test_can_request_one_layer(client, fetchall):
 
     fetchall([], check_query)
 
-    resp = client.get(url_for('serve_pbf', names='default:mylayer', z=0, x=0,
-                              y=0))
+    resp = client.get(url_for('serve_pbf', names='mylayer', z=0, x=0, y=0))
     assert resp.status_code == 200
 
 
-def test_can_omit_default_namespace(client, fetchall):
+def test_can_use_recipe_in_url(client, fetchall):
 
     fetchall([])
 
-    resp = client.get(url_for('serve_pbf', names='mylayer', z=0, x=0, y=0))
+    resp = client.get(url_for('serve_pbf', names='mylayer', recipe="default",
+                              z=0, x=0, y=0))
+    assert resp.status_code == 200
+
+
+def test_can_ask_for_specific_recipe_layers(client, fetchall, recipes):
+
+    def check_query(query, *args, **kwargs):
+        assert 'yetanother' in query
+
+    fetchall([], check_query)
+
+    recipe = Recipe(copy(recipes['default']))
+    layer = Layer(recipe, copy(recipes['default'].layers['mylayer']))
+    layer.queries[0]['sql'] = 'SELECT * FROM yetanother'
+    recipe.layers['mylayer'] = layer
+    recipe['name'] = 'other'
+    recipes['other'] = recipe
+
+    resp = client.get(url_for('serve_pbf', names='mylayer', recipe='other',
+                              z=0, x=0, y=0))
     assert resp.status_code == 200
 
 

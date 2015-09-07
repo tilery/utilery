@@ -21,8 +21,10 @@ class ServeTile(View):
     CIRCUM = 2 * math.pi * RADIUS
     SIZE = 256
 
-    def dispatch_request(self, names, z, x, y):
+    def dispatch_request(self, recipe, names, z, x, y):
+        self.namespace = recipe or "default"
         self.zoom = z
+        self.ALL = names == "all"
         self.names = names.split('+')
         self.x = x
         self.y = y
@@ -33,22 +35,16 @@ class ServeTile(View):
         self.west, self.south = mercantile.xy(bounds.west, bounds.south)
         self.east, self.north = mercantile.xy(bounds.east, bounds.north)
         self.layers = []
-        for name in self.names:
-            if ':' in name:
-                namespace, name = name.split(':')
-            else:
-                namespace = 'default'
-            if namespace not in RECIPES:
-                abort(400, u'Recipe "{}" not found'.format(namespace))
-            recipe = RECIPES[namespace]
-            if name == 'all':
-                for layer in recipe.layers.values():
-                    self.process_layer(layer)
-            else:
-                if name not in recipe.layers:
-                    abort(400, u'Layer "{}" not found in reicpe {}'.format(
-                        name, namespace))
-                self.process_layer(recipe.layers[name])
+        if self.namespace not in RECIPES:
+            msg = 'Recipe "{}" not found. Available recipes are: {}'
+            abort(400, msg.format(self.namespace, list(RECIPES.keys())))
+        self.recipe = RECIPES[self.namespace]
+        names = self.recipe.layers.keys() if self.ALL else self.names
+        for name in names:
+            if name not in self.recipe.layers:
+                abort(400, u'Layer "{}" not found in recipe {}'.format(
+                    name, self.namespace))
+            self.process_layer(self.recipe.layers[name])
         self.post_process()
 
         return self.content, 200, {"Content-Type": self.CONTENT_TYPE}
@@ -136,10 +132,14 @@ class ServePBF(ServeTile):
         self.content = mapbox_vector_tile.encode(self.layers)
 
 serve_pbf = ServePBF.as_view('serve_pbf')
+app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.pbf',
+                 view_func=serve_pbf)
+app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.mvt',
+                 view_func=serve_pbf)
 app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.pbf',
-                 view_func=serve_pbf)
+                 view_func=serve_pbf, defaults={"recipe": None})
 app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.mvt',
-                 view_func=serve_pbf)
+                 view_func=serve_pbf, defaults={"recipe": None})
 
 
 class ServeJSON(ServeTile):
@@ -153,8 +153,12 @@ class ServeJSON(ServeTile):
     def process_geometry(self, geometry):
         return json.loads(geometry)
 
+serve_json = ServeJSON.as_view('serve_json')
+app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.json',
+                 view_func=serve_json)
 app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.json',
-                 view_func=ServeJSON.as_view('servejson'))
+                 view_func=serve_json,
+                 defaults={"recipe": None})
 
 
 class ServeGeoJSON(ServeJSON):
@@ -177,8 +181,12 @@ class ServeGeoJSON(ServeJSON):
             "features": self.layers
         })
 
+serve_geojson = ServeGeoJSON.as_view('serve_geojson')
+app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.geojson',
+                 view_func=serve_geojson)
 app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.geojson',
-                 view_func=ServeGeoJSON.as_view('servegeojson'))
+                 view_func=serve_geojson,
+                 defaults={"recipe": None})
 
 
 @app.route('/tilejson/mvt.json')
