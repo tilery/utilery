@@ -2,3 +2,4 @@
 __pycache__
 local.py
 *.egg-info
+.coverage
