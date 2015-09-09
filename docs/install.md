@@ -20,7 +20,7 @@ because some Python dependencies are not released yet in pypi.
 
 1. Create a virtualenv:
 
-        mkvirtualenv addok --python=/usr/bin/python3.4
+        mkvirtualenv utilery --python=/usr/bin/python3.4
 
 1. Clone Utilery:
 
