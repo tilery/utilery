@@ -22,7 +22,7 @@ class TestPlugin(object):
 
 
 def pytest_configure(config):
-    path = Path(str(config.rootdir)).joinpath('utilery', 'config', 'test.py')
+    path = Path(str(config.rootdir)) / 'utilery/config/test.py'
     config.OLD_UTILERY_SETTINGS = os.environ.get('UTILERY_SETTINGS')
     os.environ['UTILERY_SETTINGS'] = str(path)
     from utilery import config as uconfig
