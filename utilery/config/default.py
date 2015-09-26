@@ -14,3 +14,7 @@ TILEJSON = {
 }
 PLUGINS = []
 DEBUG = False
+SRID = 900913
+SCALE = 1
+BUFFER = 0
+CLIP = False

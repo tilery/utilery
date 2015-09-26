@@ -5,7 +5,6 @@ import pytest
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
-from utilery.models import Recipe
 from .utils import copy
 
 # Do not import anything that can import config before we can patch it.
@@ -29,6 +28,7 @@ def pytest_configure(config):
     uconfig.RECIPES = []
     uconfig.PLUGINS = [TestPlugin]
     from utilery import core
+    from utilery.models import Recipe
     core.RECIPES['default'] = Recipe({
         'name': 'default',
         'layers': [{
@@ -105,6 +105,7 @@ def config(monkeypatch):
 
 @pytest.fixture
 def layer(recipes):
+    from utilery.models import Recipe
     recipe = Recipe(copy(recipes['default']))
     recipes['default'] = recipe
     layer = recipe.layers['mylayer']

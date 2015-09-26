@@ -1,11 +1,7 @@
-class Recipe(dict):
+from . import config
 
-    DEFAULTS = {
-        "srid": 900913,
-        "scale": 1,
-        "buffer": 0,
-        "clip": False
-    }
+
+class Recipe(dict):
 
     def __init__(self, data):
         super().__init__(data)
@@ -17,7 +13,7 @@ class Recipe(dict):
             self.layers[layer['name']] = Layer(self, layer)
 
     def __getattr__(self, attr):
-        return self.get(attr, self.DEFAULTS.get(attr))
+        return self.get(attr, getattr(config, attr.upper(), None))
 
 
 class Layer(dict):
