@@ -7,3 +7,4 @@ pages:
 - [install.md, Installation]
 - [config.md, Configuration]
 - [api.md, Endpoints]
+- [plugins.md, Plugins]

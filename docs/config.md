@@ -41,6 +41,13 @@ This dictionnary need to contain all the database credentials that will be refer
 Usually it will have one `default` key. Values are on the [LibPQ connection string format](http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING).
 
 
+#### PLUGINS (list)
+
+    PLUGINS = ['path.to.MyPlugin']
+
+It's a list of paths to optional [plugins](plugins.md).
+
+
 #### RECIPES (list) - *required*
 
     RECIPES = ['/home/tile/utilery-osm-recipe/utilery.yml']
