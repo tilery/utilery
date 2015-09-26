@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import pytest
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
@@ -19,6 +22,9 @@ class TestPlugin(object):
 
 
 def pytest_configure(config):
+    path = Path(str(config.rootdir)).joinpath('utilery', 'config', 'test.py')
+    config.OLD_UTILERY_SETTINGS = os.environ.get('UTILERY_SETTINGS')
+    os.environ['UTILERY_SETTINGS'] = str(path)
     from utilery import config as uconfig
     uconfig.RECIPES = []
     uconfig.PLUGINS = [TestPlugin]
@@ -35,6 +41,10 @@ def pytest_configure(config):
             ]
         }]
     })
+
+
+def pytest_unconfigure(config):
+    os.environ['UTILERY_SETTINGS'] = config.OLD_UTILERY_SETTINGS or ''
 
 
 @pytest.fixture
