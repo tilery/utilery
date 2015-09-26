@@ -20,12 +20,12 @@ environment, so basically you'll set on this file the [database](#databases-dict
 crendentials and the paths of the YAML recipe(s).
 
 A [recipe](#recipes) is a YAML file that describres how to request data to PostgreSQL; you'll have at least one,
-but you can have has many as you want.
+but you can have as many as you want.
 
 
 ## Python configuration
 
-This is a normal python file. You need to set a environment variable so that Utilery knows where to look
+This is a normal python file. You need to set an environment variable so that Utilery knows where to look
 for it:
 
     export UTILERY_SETTINGS=/home/tile/local.py
@@ -37,7 +37,7 @@ for it:
         "default": "dbname=utilery user=osm password=osm host=localhost"
     }
 
-This dictionnary need to contain all the database credentials that will be referred to by the recipes.
+This dictionnary needs to contain all the database credentials that will be referred to by the recipes.
 Usually it will have one `default` key. Values are on the [LibPQ connection string format](http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING).
 
 
@@ -109,7 +109,7 @@ The name of the layer. This is the name to be used when requesting for only one 
 in the API endpoints.
 
 ##### queries (sequence) - *required*
-A sequence of [sequences](#query-keys) mappings.
+A sequence of [query](#query-keys) mappings.
 
 ### **Query keys**
 
