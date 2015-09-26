@@ -104,6 +104,9 @@ def layer(recipes):
 @pytest.fixture
 def plugins(monkeypatch):
     from utilery.plugins import Plugins
-    _ = []
-    monkeypatch.setattr(Plugins, '_', _)
-    return _
+
+    # Reset plugins.
+    monkeypatch.setattr(Plugins, '_registry', [])
+    monkeypatch.setattr(Plugins, '_hooks', {})
+
+    return lambda p: Plugins.register_plugin(p)

@@ -20,7 +20,7 @@ def test_on_request_can_return_response(client, plugins):
             assert request.path == '/default/mylayer/0/0/0.pbf'
             return Response('on_request')
 
-    plugins.append(Plugin())
+    plugins(Plugin())
 
     resp = client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status_code == 200
@@ -33,7 +33,7 @@ def test_on_request_can_return_tuple(client, plugins):
         def on_request(self, endpoint, request, **kwargs):
             return '', 302, {'Location': 'http://somewhere-else.org'}
 
-    plugins.append(Plugin())
+    plugins(Plugin())
 
     resp = client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status_code == 302
@@ -46,7 +46,7 @@ def test_on_response_can_override_response_content(client, plugins, fetchall):
         def on_response(self, response, request, **kwargs):
             return Response('on_response')
 
-    plugins.append(Plugin())
+    plugins(Plugin())
     fetchall([])
 
     resp = client.get('/default/mylayer/0/0/0.pbf')
@@ -60,7 +60,7 @@ def test_on_response_can_override_response_headers(client, plugins, fetchall):
         def on_response(self, response, request, **kwargs):
             response.headers['Custom'] = 'OK'
 
-    plugins.append(Plugin())
+    plugins(Plugin())
     fetchall([])
 
     resp = client.get('/default/mylayer/0/0/0.pbf')

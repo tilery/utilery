@@ -33,7 +33,7 @@ def app(environ, start_response):
     try:
         endpoint, kwargs = urls.match()
         request = Request(environ)
-        response = Plugins.send('request', endpoint=endpoint, request=request,
+        response = Plugins.hook('request', endpoint=endpoint, request=request,
                                 **kwargs)
         if not response:
             response = View.serve(endpoint, request, **kwargs)
@@ -44,7 +44,7 @@ def app(environ, start_response):
     except HTTPException as e:
         return e(environ, start_response)
     else:
-        response = Plugins.send('response', response=response, request=request) or response  # noqa
+        response = Plugins.hook('response', response=response, request=request) or response  # noqa
         return response(environ, start_response)
 
 

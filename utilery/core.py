@@ -55,7 +55,7 @@ atexit.register(close_connections)
 
 
 Plugins.load()
-Plugins.send('before_load', config=config)
+Plugins.hook('before_load', config=config)
 
 
 def load_recipe(data):
@@ -75,4 +75,4 @@ for recipe in recipes:
     with Path(recipe).open() as f:
         load_recipe(yaml.load(f.read()))
 
-Plugins.send('load', config=config, recipes=RECIPES)
+Plugins.hook('load', config=config, recipes=RECIPES)
