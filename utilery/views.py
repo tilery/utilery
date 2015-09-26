@@ -9,6 +9,7 @@ from werkzeug.wrappers import Request, Response
 
 from . import config
 from .core import DB, RECIPES
+from .plugins import Plugins
 
 import mercantile
 import mapbox_vector_tile
@@ -32,7 +33,10 @@ def app(environ, start_response):
     try:
         endpoint, kwargs = urls.match()
         request = Request(environ)
-        response = View.serve(endpoint, request, **kwargs)
+        response = Plugins.send('request', endpoint=endpoint, request=request,
+                                **kwargs)
+        if not response:
+            response = View.serve(endpoint, request, **kwargs)
         if isinstance(response, tuple):
             response = Response(*response)
         elif isinstance(response, str):
@@ -40,6 +44,7 @@ def app(environ, start_response):
     except HTTPException as e:
         return e(environ, start_response)
     else:
+        response = Plugins.send('response', response=response, request=request) or response  # noqa
         return response(environ, start_response)
 
 
@@ -65,9 +70,7 @@ class View(object, metaclass=WithEndPoint):
         if not Class:
             raise BadRequest()
         view = Class(request)
-        if request.method == 'POST' and hasattr(view, 'post'):
-            response = view.post(**kwargs)
-        elif view.request.method == 'GET' and hasattr(view, 'get'):
+        if view.request.method == 'GET' and hasattr(view, 'get'):
             response = view.get(**kwargs)
         elif view.request.method == 'OPTIONS':
             response = view.options(**kwargs)
@@ -131,7 +134,7 @@ class ServeTile(View):
                 rows = DB.fetchall(sql, dbname=query.dbname)
             except (psycopg2.ProgrammingError, psycopg2.InternalError) as e:
                 msg = str(e)
-                if app.debug:
+                if config.DEBUG:
                     msg = "{} ** Query was: {}".format(msg, sql)
                 abort(500, msg)
             features += [self.to_feature(row, layer) for row in rows]

@@ -2,15 +2,27 @@ import pytest
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
-from utilery import core
-from utilery import config as uconfig
 from utilery.models import Recipe
-from utilery.views import app
 from .utils import copy
+
+# Do not import anything that can import config before we can patch it.
+
+
+class TestPlugin(object):
+
+    def on_before_load(self, config):
+        config.BEFORE_LOAD = True
+
+    def on_load(self, config, recipes):
+        assert config.BEFORE_LOAD
+        config.LOAD = True
 
 
 def pytest_configure(config):
+    from utilery import config as uconfig
     uconfig.RECIPES = []
+    uconfig.PLUGINS = [TestPlugin]
+    from utilery import core
     core.RECIPES['default'] = Recipe({
         'name': 'default',
         'layers': [{
@@ -40,6 +52,7 @@ def fetchall(monkeypatch):
 
 @pytest.fixture
 def client():
+    from utilery.views import app
     return Client(app, BaseResponse)
 
 
@@ -69,14 +82,14 @@ class MonkeyPatchWrapper(object):
 
 
 @pytest.fixture
-def recipes(request, monkeypatch):
-
+def recipes(monkeypatch):
+    from utilery import core
     return MonkeyPatchWrapper(monkeypatch, core.RECIPES)
 
 
 @pytest.fixture()
-def config(request, monkeypatch):
-
+def config(monkeypatch):
+    from utilery import config as uconfig
     return MonkeyPatchWrapper(monkeypatch, uconfig)
 
 
@@ -86,3 +99,11 @@ def layer(recipes):
     recipes['default'] = recipe
     layer = recipe.layers['mylayer']
     return layer
+
+
+@pytest.fixture
+def plugins(monkeypatch):
+    from utilery.plugins import Plugins
+    _ = []
+    monkeypatch.setattr(Plugins, '_', _)
+    return _

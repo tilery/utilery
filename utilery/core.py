@@ -7,8 +7,9 @@ import psycopg2.extras
 import yaml
 from pathlib import Path
 
-from .models import Recipe
 from . import config
+from .plugins import Plugins
+from .models import Recipe
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,10 @@ def close_connections():
 atexit.register(close_connections)
 
 
+Plugins.load()
+Plugins.send('before_load', config=config)
+
+
 def load_recipe(data):
     name = data.get('name', 'default')
     if name in RECIPES:
@@ -69,3 +74,5 @@ if isinstance(recipes, str):
 for recipe in recipes:
     with Path(recipe).open() as f:
         load_recipe(yaml.load(f.read()))
+
+Plugins.send('load', config=config, recipes=RECIPES)
