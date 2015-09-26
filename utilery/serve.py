@@ -1,5 +1,5 @@
-import os
+from utilery.views import app
+from werkzeug.serving import run_simple
 
-from utilery.core import app
 
-app.run(debug=os.environ.get('DEBUG', True), host='0.0.0.0', port=3579)
+run_simple('0.0.0.0', 3579, app, use_debugger=True, use_reloader=True)

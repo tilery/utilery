@@ -3,13 +3,80 @@ import math
 
 import psycopg2
 
-from flask import abort
-from flask.views import View
+from werkzeug.exceptions import BadRequest, HTTPException, abort
+from werkzeug.routing import Map, Rule
+from werkzeug.wrappers import Request, Response
 
-from .core import app, DB, RECIPES
+from . import config
+from .core import DB, RECIPES
 
 import mercantile
 import mapbox_vector_tile
+
+
+url_map = Map([
+    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.pbf', endpoint='pbf'),
+    Rule('/<names>/<int:z>/<int:x>/<int:y>.pbf', endpoint='pbf'),
+    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.mvt', endpoint='pbf'),
+    Rule('/<names>/<int:z>/<int:x>/<int:y>.mvt', endpoint='pbf'),
+    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.json', endpoint='json'),
+    Rule('/<names>/<int:z>/<int:x>/<int:y>.json', endpoint='json'),
+    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.geojson', endpoint='geojson'),  # noqa
+    Rule('/<names>/<int:z>/<int:x>/<int:y>.geojson', endpoint='geojson'),
+    Rule('/tilejson/mvt.json', endpoint='tilejson'),
+])
+
+
+def app(environ, start_response):
+    urls = url_map.bind_to_environ(environ)
+    try:
+        endpoint, kwargs = urls.match()
+        request = Request(environ)
+        response = View.serve(endpoint, request, **kwargs)
+        if isinstance(response, tuple):
+            response = Response(*response)
+        elif isinstance(response, str):
+            response = Response(response)
+    except HTTPException as e:
+        return e(environ, start_response)
+    else:
+        return response(environ, start_response)
+
+
+class WithEndPoint(type):
+
+    endpoints = {}
+
+    def __new__(mcs, name, bases, attrs, **kwargs):
+        cls = super().__new__(mcs, name, bases, attrs)
+        if hasattr(cls, 'endpoint'):
+            mcs.endpoints[cls.endpoint] = cls
+        return cls
+
+
+class View(object, metaclass=WithEndPoint):
+
+    def __init__(self, request):
+        self.request = request
+
+    @classmethod
+    def serve(cls, endpoint, request, **kwargs):
+        Class = WithEndPoint.endpoints.get(endpoint)
+        if not Class:
+            raise BadRequest()
+        view = Class(request)
+        if request.method == 'POST' and hasattr(view, 'post'):
+            response = view.post(**kwargs)
+        elif view.request.method == 'GET' and hasattr(view, 'get'):
+            response = view.get(**kwargs)
+        elif view.request.method == 'OPTIONS':
+            response = view.options(**kwargs)
+        else:
+            raise BadRequest()
+        return response
+
+    def options(self):
+        return Response('')
 
 
 class ServeTile(View):
@@ -21,7 +88,7 @@ class ServeTile(View):
     CIRCUM = 2 * math.pi * RADIUS
     SIZE = 256
 
-    def dispatch_request(self, recipe, names, z, x, y):
+    def get(self, names, z, x, y, recipe=None):
         self.namespace = recipe or "default"
         self.zoom = z
         self.ALL = names == "all"
@@ -118,6 +185,8 @@ class ServeTile(View):
 
 class ServePBF(ServeTile):
 
+    endpoint = 'pbf'
+
     SCALE = 4096
     CONTENT_TYPE = 'application/x-protobuf'
 
@@ -131,18 +200,10 @@ class ServePBF(ServeTile):
     def post_process(self):
         self.content = mapbox_vector_tile.encode(self.layers)
 
-serve_pbf = ServePBF.as_view('serve_pbf')
-app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.pbf',
-                 view_func=serve_pbf)
-app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.mvt',
-                 view_func=serve_pbf)
-app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.pbf',
-                 view_func=serve_pbf, defaults={"recipe": None})
-app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.mvt',
-                 view_func=serve_pbf, defaults={"recipe": None})
-
 
 class ServeJSON(ServeTile):
+
+    endpoint = 'json'
 
     GEOMETRY = "ST_AsGeoJSON(ST_Transform({way}, 4326)) as _way"  # noqa
     CONTENT_TYPE = 'application/json'
@@ -153,15 +214,10 @@ class ServeJSON(ServeTile):
     def process_geometry(self, geometry):
         return json.loads(geometry)
 
-serve_json = ServeJSON.as_view('serve_json')
-app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.json',
-                 view_func=serve_json)
-app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.json',
-                 view_func=serve_json,
-                 defaults={"recipe": None})
-
 
 class ServeGeoJSON(ServeJSON):
+
+    endpoint = 'geojson'
 
     def to_layer(self, layer, features):
         return features
@@ -181,22 +237,18 @@ class ServeGeoJSON(ServeJSON):
             "features": self.layers
         })
 
-serve_geojson = ServeGeoJSON.as_view('serve_geojson')
-app.add_url_rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.geojson',
-                 view_func=serve_geojson)
-app.add_url_rule('/<names>/<int:z>/<int:x>/<int:y>.geojson',
-                 view_func=serve_geojson,
-                 defaults={"recipe": None})
 
+class TileJson(View):
 
-@app.route('/tilejson/mvt.json')
-def tilejson():
-    base = app.config['TILEJSON']
-    base['vector_layers'] = []
-    for recipe in RECIPES.values():
-        for layer in recipe.layers.values():
-            base['vector_layers'].append({
-                "description": layer.description,
-                "id": layer.id
-            })
-    return json.dumps(base)
+    endpoint = 'tilejson'
+
+    def get(self):
+        base = config.TILEJSON
+        base['vector_layers'] = []
+        for recipe in RECIPES.values():
+            for layer in recipe.layers.values():
+                base['vector_layers'].append({
+                    "description": layer.description,
+                    "id": layer.id
+                })
+        return json.dumps(base)

@@ -1,14 +1,16 @@
 import pytest
+from werkzeug.test import Client
+from werkzeug.wrappers import BaseResponse
 
 from utilery import core
-from utilery.models import Layer, Recipe
+from utilery import config as uconfig
+from utilery.models import Recipe
+from utilery.views import app
 from .utils import copy
 
 
 def pytest_configure(config):
-    core.app.config['DATABASE'] = ':memory:'
-    core.app.config['TESTING'] = True
-    core.app.config['RECIPES'] = []
+    uconfig.RECIPES = []
     core.RECIPES['default'] = Recipe({
         'name': 'default',
         'layers': [{
@@ -37,8 +39,8 @@ def fetchall(monkeypatch):
 
 
 @pytest.fixture
-def app():
-    return core.app
+def client():
+    return Client(app, BaseResponse)
 
 
 class MonkeyPatchWrapper(object):
@@ -70,6 +72,12 @@ class MonkeyPatchWrapper(object):
 def recipes(request, monkeypatch):
 
     return MonkeyPatchWrapper(monkeypatch, core.RECIPES)
+
+
+@pytest.fixture()
+def config(request, monkeypatch):
+
+    return MonkeyPatchWrapper(monkeypatch, uconfig)
 
 
 @pytest.fixture

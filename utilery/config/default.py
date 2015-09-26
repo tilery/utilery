@@ -12,3 +12,5 @@ TILEJSON = {
         "http://vector.myserver.org/all/{z}/{x}/{y}.pbf"
     ],
 }
+PLUGINS = []
+DEBUG = False

@@ -1,7 +1,5 @@
 import json
 
-from flask import url_for
-
 from utilery.models import Layer, Recipe
 from .utils import copy
 
@@ -15,13 +13,13 @@ def test_simple_request(client, fetchall):
 
     fetchall([], check_query)
 
-    resp = client.get(url_for('serve_pbf', names='all', z=0, x=0, y=0))
+    resp = client.get('/all/0/0/0.pbf')
     assert resp.status_code == 200
 
 
 def test_unknown_layer_return_400(client):
 
-    resp = client.get(url_for('serve_pbf', names='unknown', z=0, x=0, y=0))
+    resp = client.get('/unknown/0/0/0.pbf')
     assert resp.status_code == 400
 
 
@@ -32,7 +30,7 @@ def test_can_request_one_layer(client, fetchall):
 
     fetchall([], check_query)
 
-    resp = client.get(url_for('serve_pbf', names='mylayer', z=0, x=0, y=0))
+    resp = client.get('/mylayer/0/0/0.pbf')
     assert resp.status_code == 200
 
 
@@ -40,8 +38,7 @@ def test_can_use_recipe_in_url(client, fetchall):
 
     fetchall([])
 
-    resp = client.get(url_for('serve_pbf', names='mylayer', recipe="default",
-                              z=0, x=0, y=0))
+    resp = client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status_code == 200
 
 
@@ -59,8 +56,7 @@ def test_can_ask_for_specific_recipe_layers(client, fetchall, recipes):
     recipe['name'] = 'other'
     recipes['other'] = recipe
 
-    resp = client.get(url_for('serve_pbf', names='mylayer', recipe='other',
-                              z=0, x=0, y=0))
+    resp = client.get('/other/mylayer/0/0/0.pbf')
     assert resp.status_code == 200
 
 
@@ -73,8 +69,7 @@ def test_can_ask_several_layers(client, fetchall, recipes):
     recipe.layers['other'] = layer
     recipes['default'] = recipe
 
-    resp = client.get(url_for('serve_pbf', names='mylayer+other', z=0, x=0,
-                              y=0))
+    resp = client.get('/mylayer+other/0/0/0.pbf')
     assert resp.status_code == 200
 
 
@@ -90,7 +85,7 @@ def test_does_not_request_if_lower_than_minzoom(client, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert client.get(url_for('serve_pbf', names='all', z=0, x=0, y=0))
+    assert client.get('/all/0/0/0.pbf')
 
 
 def test_does_not_request_if_higher_than_maxzoom(client, fetchall, layer):
@@ -105,7 +100,7 @@ def test_does_not_request_if_higher_than_maxzoom(client, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert client.get(url_for('serve_pbf', names='all', z=2, x=0, y=0))
+    assert client.get('/all/2/0/0.pbf')
 
 
 def test_can_change_srid(client, fetchall, layer):
@@ -117,7 +112,7 @@ def test_can_change_srid(client, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert client.get(url_for('serve_pbf', names='all', z=0, x=0, y=0))
+    assert client.get('/all/0/0/0.pbf')
 
 
 def test_clip_when_asked(client, fetchall, layer):
@@ -129,7 +124,7 @@ def test_clip_when_asked(client, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert client.get(url_for('serve_pbf', names='all', z=0, x=0, y=0))
+    assert client.get('/all/0/0/0.pbf')
 
 
 def test_add_buffer_when_asked(client, fetchall, layer):
@@ -141,12 +136,12 @@ def test_add_buffer_when_asked(client, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert client.get(url_for('serve_pbf', names='all', z=0, x=0, y=0))
+    assert client.get('/all/0/0/0.pbf')
 
 
 def test_tilejson(client, config):
-    config['TILEJSON']['name'] = "testname"
-    resp = client.get(url_for('tilejson'))
+    config.TILEJSON['name'] = "testname"
+    resp = client.get('/tilejson/mvt.json')
     assert resp.status_code == 200
     data = json.loads(resp.data.decode())
     assert data['name'] == "testname"
