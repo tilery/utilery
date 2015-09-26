@@ -17,6 +17,11 @@ def test_simple_request(client, fetchall):
     assert resp.status_code == 200
 
 
+def test_options(client, fetchall):
+    resp = client.options('/all/0/0/0.pbf')
+    assert resp.status_code == 200
+
+
 def test_unknown_layer_return_400(client):
 
     resp = client.get('/unknown/0/0/0.pbf')

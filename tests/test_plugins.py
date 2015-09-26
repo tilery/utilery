@@ -66,3 +66,26 @@ def test_on_response_can_override_response_headers(client, plugins, fetchall):
     resp = client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status_code == 200
     assert resp.headers['Custom'] == 'OK'
+
+
+def test_cors_add_cors_headers(client, fetchall):
+    fetchall([])
+    resp = client.get('/default/mylayer/0/0/0.pbf')
+    assert resp.status_code == 200
+    assert resp.headers['Access-Control-Allow-Origin'] == '*'
+
+
+def test_cors_can_be_changed_in_config(client, fetchall, config):
+    config.CORS = 'http://mydomain.org'
+    fetchall([])
+    resp = client.get('/default/mylayer/0/0/0.pbf')
+    assert resp.status_code == 200
+    assert resp.headers['Access-Control-Allow-Origin'] == 'http://mydomain.org'
+
+
+def test_cors_can_be_cancelled_in_config(client, fetchall, config):
+    config.CORS = False
+    fetchall([])
+    resp = client.get('/default/mylayer/0/0/0.pbf')
+    assert resp.status_code == 200
+    assert 'Access-Control-Allow-Origin' not in resp.headers

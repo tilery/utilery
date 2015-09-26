@@ -78,7 +78,7 @@ class View(object, metaclass=WithEndPoint):
             raise BadRequest()
         return response
 
-    def options(self):
+    def options(self, **kwargs):
         return Response('')
 
 

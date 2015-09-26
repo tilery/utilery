@@ -1,5 +1,5 @@
-from .utils import import_by_path
-from . import config
+from utilery.utils import import_by_path
+from utilery import config
 
 
 class Plugins(object):
@@ -9,7 +9,7 @@ class Plugins(object):
 
     @classmethod
     def load(cls):
-        for path in config.PLUGINS:
+        for path in config.BUILTIN_PLUGINS + config.PLUGINS:
             cls.register_plugin(import_by_path(path)())
 
     @classmethod
