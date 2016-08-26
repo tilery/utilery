@@ -1,88 +1,23 @@
+import asyncio
 import json
 import math
 
-import psycopg2
 
-from werkzeug.exceptions import BadRequest, HTTPException, abort
-from werkzeug.routing import Map, Rule
-from werkzeug.wrappers import Request, Response
+import uvloop
 
 from . import config
-from .core import DB, RECIPES
+from .core import DB, RECIPES, Handler
 from .plugins import Plugins
 
 import mercantile
 import mapbox_vector_tile
+from mapbox_vector_tile.encoder import on_invalid_geometry_make_valid
 
 
-url_map = Map([
-    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.pbf', endpoint='pbf'),
-    Rule('/<names>/<int:z>/<int:x>/<int:y>.pbf', endpoint='pbf'),
-    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.mvt', endpoint='pbf'),
-    Rule('/<names>/<int:z>/<int:x>/<int:y>.mvt', endpoint='pbf'),
-    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.json', endpoint='json'),
-    Rule('/<names>/<int:z>/<int:x>/<int:y>.json', endpoint='json'),
-    Rule('/<recipe>/<names>/<int:z>/<int:x>/<int:y>.geojson', endpoint='geojson'),  # noqa
-    Rule('/<names>/<int:z>/<int:x>/<int:y>.geojson', endpoint='geojson'),
-    Rule('/tilejson/mvt.json', endpoint='tilejson'),
-])
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
-def app(environ, start_response):
-    urls = url_map.bind_to_environ(environ)
-    try:
-        endpoint, kwargs = urls.match()
-        request = Request(environ)
-        response = Plugins.hook('request', endpoint=endpoint, request=request,
-                                **kwargs)
-        if not response:
-            response = View.serve(endpoint, request, **kwargs)
-        if isinstance(response, tuple):
-            response = Response(*response)
-        elif isinstance(response, str):
-            response = Response(response)
-    except HTTPException as e:
-        return e(environ, start_response)
-    else:
-        response = Plugins.hook('response', response=response, request=request) or response  # noqa
-        return response(environ, start_response)
-
-
-class WithEndPoint(type):
-
-    endpoints = {}
-
-    def __new__(mcs, name, bases, attrs, **kwargs):
-        cls = super().__new__(mcs, name, bases, attrs)
-        if hasattr(cls, 'endpoint'):
-            mcs.endpoints[cls.endpoint] = cls
-        return cls
-
-
-class View(object, metaclass=WithEndPoint):
-
-    def __init__(self, request):
-        self.request = request
-
-    @classmethod
-    def serve(cls, endpoint, request, **kwargs):
-        Class = WithEndPoint.endpoints.get(endpoint)
-        if not Class:
-            raise BadRequest()
-        view = Class(request)
-        if view.request.method == 'GET' and hasattr(view, 'get'):
-            response = view.get(**kwargs)
-        elif view.request.method == 'OPTIONS':
-            response = view.options(**kwargs)
-        else:
-            raise BadRequest()
-        return response
-
-    def options(self, **kwargs):
-        return Response('')
-
-
-class ServeTile(View):
+class Tile(Handler):
 
     SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE ST_IsValid(way) AND ST_Intersects(way, {bbox})"  # noqa
     GEOMETRY = "{way}"
@@ -91,39 +26,35 @@ class ServeTile(View):
     CIRCUM = 2 * math.pi * RADIUS
     SIZE = 256
 
-    def get(self, names, z, x, y, recipe=None):
-        self.namespace = recipe or "default"
-        self.zoom = z
-        self.ALL = names == "all"
+    async def __call__(self, req,  names, z, x, y, namespace='default'):
+        self.zoom = int(z)
+        self.x = int(x)
+        self.y = int(y)
+        self.ALL = names == 'all'
         self.names = names.split('+')
-        self.x = x
-        self.y = y
-        return self.serve()
-
-    def serve(self):
         bounds = mercantile.bounds(self.x, self.y, self.zoom)
         self.west, self.south = mercantile.xy(bounds.west, bounds.south)
         self.east, self.north = mercantile.xy(bounds.east, bounds.north)
         self.layers = []
-        if self.namespace not in RECIPES:
+        if namespace not in RECIPES:
             msg = 'Recipe "{}" not found. Available recipes are: {}'
-            abort(400, msg.format(self.namespace, list(RECIPES.keys())))
-        self.recipe = RECIPES[self.namespace]
+            abort(400, msg.format(namespace, list(RECIPES.keys())))
+        self.recipe = RECIPES[namespace]
         names = self.recipe.layers.keys() if self.ALL else self.names
         for name in names:
             if name not in self.recipe.layers:
                 abort(400, u'Layer "{}" not found in recipe {}'.format(
-                    name, self.namespace))
-            self.process_layer(self.recipe.layers[name])
+                    name, namespace))
+            await self.process_layer(self.recipe.layers[name])
         self.post_process()
 
         return self.content, 200, {"Content-Type": self.CONTENT_TYPE}
 
-    def process_layer(self, layer):
-        layer_data = self.query_layer(layer)
+    async def process_layer(self, layer):
+        layer_data = await self.query_layer(layer)
         self.add_layer_data(layer_data)
 
-    def query_layer(self, layer):
+    async def query_layer(self, layer):
         features = []
         for query in layer.queries:
             if self.zoom < query.get('minzoom', 0) \
@@ -131,8 +62,8 @@ class ServeTile(View):
                 continue
             sql = self.sql(query)
             try:
-                rows = DB.fetchall(sql, dbname=query.dbname)
-            except (psycopg2.ProgrammingError, psycopg2.InternalError) as e:
+                rows = await DB.fetchall(sql, dbname=query.dbname)
+            except Exception as e:
                 msg = str(e)
                 if config.DEBUG:
                     msg = "{} ** Query was: {}".format(msg, sql)
@@ -186,10 +117,14 @@ class ServeTile(View):
         return self.GEOMETRY
 
 
-class ServePBF(ServeTile):
+class PBF(Tile):
 
-    endpoint = 'pbf'
-
+    endpoints = [
+        '/{namespace}/{names}/{z}/{x}/{y}.pbf',
+        '/{names}/{z}/{x}/{y}.pbf',
+        '/{namespace}/{names}/{z}/{x}/{y}.mvt',
+        '/{names}/{z}/{x}/{y}.mvt',
+    ]
     SCALE = 4096
     CONTENT_TYPE = 'application/x-protobuf'
 
@@ -201,13 +136,18 @@ class ServePBF(ServeTile):
                 self.SCALE / (self.north - self.south)))
 
     def post_process(self):
-        self.content = mapbox_vector_tile.encode(self.layers)
+        self.content = mapbox_vector_tile.encode(
+            self.layers,
+            round_fn=round,
+            on_invalid_geometry=on_invalid_geometry_make_valid)
 
 
-class ServeJSON(ServeTile):
+class JSON(Tile):
 
-    endpoint = 'json'
-
+    endpoints = [
+        '/{namespace}/{names}/{z}/{x}/{y}.json',
+        '/{names}/{z}/{x}/{y}.json',
+    ]
     GEOMETRY = "ST_AsGeoJSON(ST_Transform({way}, 4326)) as _way"  # noqa
     CONTENT_TYPE = 'application/json'
 
@@ -218,9 +158,12 @@ class ServeJSON(ServeTile):
         return json.loads(geometry)
 
 
-class ServeGeoJSON(ServeJSON):
+class GeoJSON(JSON):
 
-    endpoint = 'geojson'
+    endpoints = [
+        '/{namespace}/{names}/{z}/{x}/{y}.geojson',
+        '/{names}/{z}/{x}/{y}.geojson',
+    ]
 
     def to_layer(self, layer, features):
         return features
@@ -229,7 +172,7 @@ class ServeGeoJSON(ServeJSON):
         self.layers.extend(data)
 
     def to_feature(self, row, layer):
-        feature = super(ServeGeoJSON, self).to_feature(row, layer)
+        feature = super().to_feature(row, layer)
         feature["type"] = "Feature"
         feature['properties']['layer'] = layer['name']
         return feature
@@ -241,11 +184,11 @@ class ServeGeoJSON(ServeJSON):
         })
 
 
-class TileJson(View):
+class TileJson(Handler):
 
-    endpoint = 'tilejson'
+    endpoints = ['/tilejson/mvt.json']
 
-    def get(self):
+    async def __call__(self, req):
         base = config.TILEJSON
         base['vector_layers'] = []
         for recipe in RECIPES.values():
@@ -254,4 +197,4 @@ class TileJson(View):
                     "description": layer.description,
                     "id": layer.id
                 })
-        return json.dumps(base)
+        return json.dumps(base), 200, {}
