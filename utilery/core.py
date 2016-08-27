@@ -8,6 +8,7 @@ from urllib.parse import parse_qs
 
 import asyncpg
 import psycopg2.extras
+import uvloop
 import yaml
 from httptools import parse_url, HttpRequestParser
 

@@ -1,20 +1,13 @@
-import asyncio
 import json
 import math
 
-
-import uvloop
-
 from . import config
-from .core import DB, RECIPES, Handler
+from .core import DB, RECIPES, Handler, application
 from .plugins import Plugins
 
 import mercantile
 import mapbox_vector_tile
 from mapbox_vector_tile.encoder import on_invalid_geometry_make_valid
-
-
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 class Tile(Handler):
