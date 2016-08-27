@@ -1,4 +1,6 @@
-from werkzeug.wrappers import Response
+import pytest
+
+from utilery.core import Response
 
 
 def test_on_before_load(config):
@@ -11,50 +13,53 @@ def test_on_load(config):
     assert config.LOAD
 
 
-def test_on_request_can_return_response(client, plugins):
+@pytest.mark.asyncio
+async def test_on_request_can_return_response(req, plugins):
     class Plugin(object):
 
-        def on_request(self, endpoint, request, **kwargs):
-            assert endpoint == 'pbf'
+        def on_request(self, request):
             assert request is not None
             assert request.path == '/default/mylayer/0/0/0.pbf'
-            return Response('on_request')
+            return Response(b'on_request')
 
     plugins(Plugin())
 
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 200
-    assert resp.data == b'on_request'
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'200 OK'
+    assert resp.body == b'on_request'
 
 
-def test_on_request_can_return_tuple(client, plugins):
+@pytest.mark.asyncio
+async def test_on_request_can_return_tuple(req, plugins):
     class Plugin(object):
 
-        def on_request(self, endpoint, request, **kwargs):
+        def on_request(self, request):
             return '', 302, {'Location': 'http://somewhere-else.org'}
 
     plugins(Plugin())
 
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 302
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'302 Found'
     assert resp.headers['Location'] == 'http://somewhere-else.org'
 
 
-def test_on_response_can_override_response_content(client, plugins, fetchall):
+@pytest.mark.asyncio
+async def test_on_response_can_override_response_body(req, plugins, fetchall):
     class Plugin(object):
 
         def on_response(self, response, request, **kwargs):
-            return Response('on_response')
+            return Response(b'on_response')
 
     plugins(Plugin())
     fetchall([])
 
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 200
-    assert resp.data == b'on_response'
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'200 OK'
+    assert resp.body == b'on_response'
 
 
-def test_on_response_can_override_response_headers(client, plugins, fetchall):
+@pytest.mark.asyncio
+async def test_on_response_can_override_response_headers(req, plugins, fetchall):
     class Plugin(object):
 
         def on_response(self, response, request, **kwargs):
@@ -63,29 +68,32 @@ def test_on_response_can_override_response_headers(client, plugins, fetchall):
     plugins(Plugin())
     fetchall([])
 
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 200
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'200 OK'
     assert resp.headers['Custom'] == 'OK'
 
 
-def test_cors_add_cors_headers(client, fetchall):
+@pytest.mark.asyncio
+async def test_cors_add_cors_headers(req, fetchall):
     fetchall([])
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 200
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'200 OK'
     assert resp.headers['Access-Control-Allow-Origin'] == '*'
 
 
-def test_cors_can_be_changed_in_config(client, fetchall, config):
+@pytest.mark.asyncio
+async def test_cors_can_be_changed_in_config(req, fetchall, config):
     config.CORS = 'http://mydomain.org'
     fetchall([])
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 200
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'200 OK'
     assert resp.headers['Access-Control-Allow-Origin'] == 'http://mydomain.org'
 
 
-def test_cors_can_be_cancelled_in_config(client, fetchall, config):
+@pytest.mark.asyncio
+async def test_cors_can_be_cancelled_in_config(req, fetchall, config):
     config.CORS = False
     fetchall([])
-    resp = client.get('/default/mylayer/0/0/0.pbf')
-    assert resp.status_code == 200
+    resp = await req('/default/mylayer/0/0/0.pbf')
+    assert resp.status == b'200 OK'
     assert 'Access-Control-Allow-Origin' not in resp.headers

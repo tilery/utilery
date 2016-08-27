@@ -1,6 +1,7 @@
+asyncpg==0.5.3
+httptools==0.0.9
+mapbox-vector-tile==0.4.0
+mercantile==0.9.0
+protobuf==3.0.0
 PyYAML==3.11
-git+https://github.com/mapzen/mapbox-vector-tile
-mercantile==0.8.2
-protobuf==3.0.0a3
-psycopg2==2.6.1
-Werkzeug==0.10.4
+uvloop==0.5.3

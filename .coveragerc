@@ -1,3 +1,4 @@
 [run]
 omit =
+    utilery/worker.py
     utilery/serve.py

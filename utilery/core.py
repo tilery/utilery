@@ -1,5 +1,4 @@
 import asyncio
-import atexit
 import logging
 import os
 from pathlib import Path
@@ -8,7 +7,6 @@ from urllib.parse import parse_qs
 
 import asyncpg
 import psycopg2.extras
-import uvloop
 import yaml
 from httptools import parse_url, HttpRequestParser
 
@@ -25,13 +23,37 @@ if config.DEBUG:
 
 
 RECIPES = {}
+STATUSES = {
+    200: b'200 OK',
+    301: b'301 Moved Permanently',
+    302: b'302 Found',
+    304: b'304 Not Modified',
+    400: b'400 Bad Request',
+    404: b'404 Not Found',
+    405: b'405 Method Not Allowed',
+    500: b'500 Internal Server Error',
+}
+
+
+class HttpError(Exception):
+    ...
 
 
 class Request:
 
-    EOF = False
+    __slots__ = (
+        'EOF',
+        'path',
+        'query_string',
+        'query',
+        'method',
+        'kwargs',
+    )
 
-    # HTTPRequestParser protocol methods
+    def __init__(self):
+        self.EOF = False
+        self.kwargs = {}
+
     def on_url(self, url: bytes):
         parsed = parse_url(url)
         self.path = parsed.path.decode()
@@ -40,38 +62,76 @@ class Request:
 
     def on_message_complete(self):
         self.EOF = True
-        self.payload = {}
+
+
+class Response:
+
+    __slots__ = (
+        '_status',
+        'headers',
+        'body',
+    )
+
+    def __init__(self, body=b'', status=200, headers=None):
+        self._status = None
+        self.body = body
+        self.status = status
+        self.headers = headers or {}
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, code):
+        self._status = STATUSES[code]
 
 
 class Application:
 
-    chunks = 2 ** 16
-    requests_count = 0
+    requests_count = 0  # Needed by Gunicorn worker.
     endpoints = {}
 
     async def startup(self):
-        self.connections = {}
-        self.pool = await asyncpg.create_pool(database='utilery', user='ybon')
+        self.connections = {}  # Used by Gunicorn worker.
+        await DB.startup()
 
     async def shutdown(self):
         pass
 
-    async def finish_connections(self, timeout=None):
-        coros = [conn.shutdown(timeout) for conn in self.connections]
-        await asyncio.gather(*coros, loop=self.loop)
-        self.connections.clear()
-
     async def __call__(self, reader, writer):
+        chunks = 2 ** 16
         req = Request()
         parser = HttpRequestParser(req)
         while True:
-            data = await reader.read(self.chunks)
+            data = await reader.read(chunks)
             parser.feed_data(data)
             if not data or req.EOF:
                 break
-        kwargs, handler = self.dispatch(req)
-        self._write(writer, *await handler()(req, **kwargs))
-        print("Served request…", req.path)
+        req.method = parser.get_method().decode().upper()
+        resp = await self.respond(req)
+        self.write(writer, resp)
+        print("Served request…", req.method, req.path)
+
+    async def respond(self, req):
+        resp = Plugins.hook('request', request=req)
+        if not resp:
+            if req.method == 'GET':
+                try:
+                    # Both can return an HttpError.
+                    kwargs, handler = self.dispatch(req)
+                    resp = await handler()(req, **kwargs)
+                except HttpError as e:
+                    resp = e.args[::-1]  # Allow to raise HttpError(status)
+            elif req.method == 'OPTIONS':
+                resp = b'', 200
+            else:
+                resp = b'', 405
+            resp = Response(*resp)
+        resp = Plugins.hook('response', response=resp, request=req) or resp
+        if not isinstance(resp, Response):
+            resp = Response(*resp)
+        return resp
 
     def serve(self, port=3579, host='0.0.0.0'):
         loop = asyncio.get_event_loop()
@@ -81,19 +141,17 @@ class Application:
         loop.run_forever()
         loop.close()
 
-    def _write(self, writer, body, status, headers):
-        writer.write(b'HTTP/1.1 200 OK\r\n')
-        # if 'Content-Length' not in res.headers:
-        #     length = sum(len(x) for x in res._chunks)
-        #     res.headers['Content-Length'] = str(length)
-        # for key, value in res.headers.items():
-        #     writer.write(key.encode() + b': ' + str(value).encode() + b'\r\n')
-        # for key, value in res.cookies.items():
-        #     write_cookie(writer, key, value)
+    def write(self, writer, resp):
+        writer.write(b'HTTP/1.1 %b\r\n' % resp.status)
+        if not isinstance(resp.body, bytes):
+            resp.body = resp.body.encode()
+        if 'Content-Length' not in resp.headers:
+            length = len(resp.body)
+            resp.headers['Content-Length'] = str(length)
+        for key, value in resp.headers.items():
+            writer.write(b'%b: %b\r\n' % (key.encode(), str(value).encode()))
         writer.write(b'\r\n')
-        if not isinstance(body, bytes):
-            body = body.encode()
-        writer.write(body)
+        writer.write(resp.body)
         writer.write_eof()
 
     def register_handler(self, handler):
@@ -112,11 +170,10 @@ class Application:
         path, ext = os.path.splitext(req.path)
         fragments = path.split('/')
         fragments_len = len(fragments)
-        req.kwargs = {}
         try:
             path, ext, handler = self.endpoints[fragments_len][ext]
         except:
-            raise ValueError  # TODO custom error
+            raise HttpError(404, req.path)
         else:
             for name, value in zip(path.split('/'), fragments):
                 if name.startswith('{'):
@@ -146,16 +203,14 @@ class DB(object):
     _ = {}
 
     @classmethod
-    def connect(cls, dbname=None):
-        dbname = dbname or cls.DEFAULT
-        if dbname not in cls._:
-            cls._[dbname] = psycopg2.connect(config.DATABASES[dbname])
-        return cls._[dbname]
+    async def startup(cls):
+        for name, kwargs in config.DATABASES.items():
+            cls._[name] = await asyncpg.create_pool(**kwargs)
 
     @classmethod
     async def fetchall(cls, query, args=None, dbname=None):
-        # Take a connection from the pool.
-        async with application.pool.acquire() as connection:
+        dbname = dbname or cls.DEFAULT  # Be sure not to use an empty string.
+        async with cls._[dbname].acquire() as connection:
             # Open a transaction.
             async with connection.transaction():
                 before = time.time()
@@ -163,13 +218,6 @@ class DB(object):
                 after = time.time()
         logger.debug('%s => %s\n%s', query, (after - before) * 1000, '*' * 40)
         return rv
-
-
-def close_connections():
-    logger.debug('Closing DB connections')
-    for conn in DB._.values():
-        conn.close()
-atexit.register(close_connections)
 
 
 Plugins.load()

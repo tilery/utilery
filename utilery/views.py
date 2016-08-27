@@ -2,7 +2,7 @@ import json
 import math
 
 from . import config
-from .core import DB, RECIPES, Handler, application
+from .core import DB, RECIPES, Handler, application, HttpError
 from .plugins import Plugins
 
 import mercantile
@@ -14,7 +14,6 @@ class Tile(Handler):
 
     SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE ST_IsValid(way) AND ST_Intersects(way, {bbox})"  # noqa
     GEOMETRY = "{way}"
-    methods = ['GET']
     RADIUS = 6378137
     CIRCUM = 2 * math.pi * RADIUS
     SIZE = 256
@@ -31,17 +30,17 @@ class Tile(Handler):
         self.layers = []
         if namespace not in RECIPES:
             msg = 'Recipe "{}" not found. Available recipes are: {}'
-            abort(400, msg.format(namespace, list(RECIPES.keys())))
+            raise HttpError(400, msg.format(namespace, list(RECIPES.keys())))
         self.recipe = RECIPES[namespace]
         names = self.recipe.layers.keys() if self.ALL else self.names
         for name in names:
             if name not in self.recipe.layers:
-                abort(400, u'Layer "{}" not found in recipe {}'.format(
+                raise HttpError(400, u'Layer {} not found in recipe {}'.format(
                     name, namespace))
             await self.process_layer(self.recipe.layers[name])
         self.post_process()
 
-        return self.content, 200, {"Content-Type": self.CONTENT_TYPE}
+        return self.content, 200, {'Content-Type': self.CONTENT_TYPE}
 
     async def process_layer(self, layer):
         layer_data = await self.query_layer(layer)
@@ -59,8 +58,8 @@ class Tile(Handler):
             except Exception as e:
                 msg = str(e)
                 if config.DEBUG:
-                    msg = "{} ** Query was: {}".format(msg, sql)
-                abort(500, msg)
+                    msg = '{} ** Query was: {}'.format(msg, sql)
+                raise HttpError(500, msg)
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 

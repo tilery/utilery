@@ -3,3 +3,6 @@ __pycache__
 local.py
 *.egg-info
 .coverage
+.cache/
+bench.txt
+htmlcov/

@@ -2,8 +2,6 @@ import os
 from pathlib import Path
 
 import pytest
-from werkzeug.test import Client
-from werkzeug.wrappers import BaseResponse
 
 from .utils import copy
 
@@ -48,22 +46,31 @@ def pytest_unconfigure(config):
 
 
 @pytest.fixture
+def req():
+    # Do not import before patching the config.
+    from utilery.views import application
+    from utilery.core import Request
+
+    async def _(path, method='GET'):
+        req = Request()
+        req.path = path
+        req.method = method
+        return await application.respond(req)
+
+    return _
+
+
+@pytest.fixture
 def fetchall(monkeypatch):
 
     def _(result, check=None):
-        def func(*args, **kwargs):
+        async def func(*args, **kwargs):
             if check:
                 check(*args, **kwargs)
             return result
         monkeypatch.setattr('utilery.core.DB.fetchall', func)
 
     return _
-
-
-@pytest.fixture
-def client():
-    from utilery.views import app
-    return Client(app, BaseResponse)
 
 
 class MonkeyPatchWrapper(object):
