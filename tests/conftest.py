@@ -1,21 +1,11 @@
+from copy import deepcopy
 import os
 from pathlib import Path
 
 import pytest
 
 from .utils import copy
-
 # Do not import anything that can import config before we can patch it.
-
-
-class TestPlugin(object):
-
-    def on_before_load(self, config):
-        config.BEFORE_LOAD = True
-
-    def on_load(self, config, recipes):
-        assert config.BEFORE_LOAD
-        config.LOAD = True
 
 
 def pytest_configure(config):
@@ -24,7 +14,6 @@ def pytest_configure(config):
     os.environ['UTILERY_SETTINGS'] = str(path)
     from utilery import config as uconfig
     uconfig.RECIPES = []
-    uconfig.PLUGINS = [TestPlugin]
     from utilery import core
     from utilery.models import Recipe
     core.RECIPES['default'] = Recipe({
@@ -45,19 +34,12 @@ def pytest_unconfigure(config):
     os.environ['UTILERY_SETTINGS'] = config.OLD_UTILERY_SETTINGS or ''
 
 
-@pytest.fixture
-def req():
-    # Do not import before patching the config.
-    from utilery.views import application
-    from utilery.core import Request
-
-    async def _(path, method='GET'):
-        req = Request()
-        req.path = path
-        req.method = method
-        return await application.respond(req)
-
-    return _
+@pytest.yield_fixture
+def app():
+    from utilery.views import app as myapp
+    hooks = deepcopy(myapp.hooks)
+    yield myapp
+    myapp.hooks = hooks
 
 
 @pytest.fixture
@@ -117,14 +99,3 @@ def layer(recipes):
     recipes['default'] = recipe
     layer = recipe.layers['mylayer']
     return layer
-
-
-@pytest.fixture
-def plugins(monkeypatch):
-    from utilery.plugins import Plugins
-
-    # Reset plugins.
-    monkeypatch.setattr(Plugins, '_registry', [])
-    monkeypatch.setattr(Plugins, '_hooks', {})
-
-    return lambda p: Plugins.register_plugin(p)

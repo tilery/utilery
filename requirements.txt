@@ -1,7 +1,8 @@
-asyncpg==0.5.3
-httptools==0.0.9
-mapbox-vector-tile==0.4.0
+asyncpg==0.11.0
+mapbox-vector-tile==1.2.0
 mercantile==0.9.0
-protobuf==3.0.0
+protobuf==3.3.0
 PyYAML==3.11
+git+https://framagit.org/drone/roll
+ujson==1.35
 uvloop==0.5.3

@@ -16,27 +16,27 @@ async def test_simple_request(req, fetchall):
 
     fetchall([], check_query)
 
-    resp = await req('/all/0/0/0.pbf')
+    resp = await req('/all/0/0/0/pbf')
     assert resp.status == b'200 OK'
 
 
 @pytest.mark.asyncio
 async def test_options(req, fetchall):
-    resp = await req('/all/0/0/0.pbf', method='OPTIONS')
+    resp = await req('/all/0/0/0/pbf', method='OPTIONS')
     assert resp.status == b'200 OK'
 
 
 @pytest.mark.asyncio
 async def test_unknown_layer_returns_400(req):
 
-    resp = await req('/unknown/0/0/0.pbf')
+    resp = await req('/unknown/0/0/0/pbf')
     assert resp.status == b'400 Bad Request'
 
 
 @pytest.mark.asyncio
 async def test_unknown_recipe_returns_400(req):
 
-    resp = await req('/unknown/all/0/0/0.pbf')
+    resp = await req('/unknown/all/0/0/0/pbf')
     assert resp.status == b'400 Bad Request'
 
 
@@ -55,7 +55,7 @@ async def test_can_request_one_layer(req, fetchall):
 
     fetchall([], check_query)
 
-    resp = await req('/mylayer/0/0/0.pbf')
+    resp = await req('/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
 
 
@@ -64,7 +64,7 @@ async def test_can_use_recipe_in_url(req, fetchall):
 
     fetchall([])
 
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
 
 
@@ -83,7 +83,7 @@ async def test_can_ask_for_specific_recipe_layers(req, fetchall, recipes):
     recipe['name'] = 'other'
     recipes['other'] = recipe
 
-    resp = await req('/other/mylayer/0/0/0.pbf')
+    resp = await req('/other/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
 
 
@@ -97,7 +97,7 @@ async def test_can_ask_several_layers(req, fetchall, recipes):
     recipe.layers['other'] = layer
     recipes['default'] = recipe
 
-    resp = await req('/mylayer+other/0/0/0.pbf')
+    resp = await req('/mylayer+other/0/0/0/pbf')
     assert resp.status == b'200 OK'
 
 
@@ -114,7 +114,7 @@ async def test_does_not_request_if_lower_than_minzoom(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await req('/all/0/0/0.pbf')
+    assert await req('/all/0/0/0/pbf')
 
 
 @pytest.mark.asyncio
@@ -130,7 +130,7 @@ async def test_does_not_request_if_higher_than_maxzoom(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await req('/all/2/0/0.pbf')
+    assert await req('/all/2/0/0/pbf')
 
 
 @pytest.mark.asyncio
@@ -143,7 +143,7 @@ async def test_can_change_srid(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await req('/all/0/0/0.pbf')
+    assert await req('/all/0/0/0/pbf')
 
 
 @pytest.mark.asyncio
@@ -156,7 +156,7 @@ async def test_clip_when_asked(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await req('/all/0/0/0.pbf')
+    assert await req('/all/0/0/0/pbf')
 
 
 @pytest.mark.asyncio
@@ -169,7 +169,7 @@ async def test_add_buffer_when_asked(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await req('/all/0/0/0.pbf')
+    assert await req('/all/0/0/0/pbf')
 
 
 @pytest.mark.asyncio

@@ -1,74 +1,77 @@
 import pytest
 
-from utilery.core import Response
+from utilery.core import app
 
 
-def test_on_before_load(config):
-    # See TestPlugin in conftest.py
+@app.listen('before_load')
+async def on_before_load(config):
+    config.BEFORE_LOAD = True
+
+
+@app.listen('load')
+async def on_load(config, recipes):
+    assert config.BEFORE_LOAD
+    config.LOAD = True
+
+
+def test_on_before_load(req, config):
     assert config.BEFORE_LOAD
 
 
-def test_on_load(config):
-    # See TestPlugin in conftest.py
+def test_on_load(req, config):
     assert config.LOAD
 
 
 @pytest.mark.asyncio
-async def test_on_request_can_return_response(req, plugins):
-    class Plugin(object):
+async def test_on_request_can_return_content_only(app, req):
 
-        def on_request(self, request):
-            assert request is not None
-            assert request.path == '/default/mylayer/0/0/0.pbf'
-            return Response(b'on_request')
+    @app.listen('request')
+    async def on_request(request):
+        assert request is not None
+        assert request.path == '/default/mylayer/0/0/0/pbf'
+        return b'on_request'
 
-    plugins(Plugin())
-
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.body == b'on_request'
 
 
 @pytest.mark.asyncio
-async def test_on_request_can_return_tuple(req, plugins):
-    class Plugin(object):
+async def test_on_request_can_return_tuple(app, req):
 
-        def on_request(self, request):
-            return '', 302, {'Location': 'http://somewhere-else.org'}
+    @app.listen('request')
+    async def on_request(request):
+        return '', 302, {'Location': 'http://somewhere-else.org'}
 
-    plugins(Plugin())
-
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'302 Found'
     assert resp.headers['Location'] == 'http://somewhere-else.org'
 
 
 @pytest.mark.asyncio
-async def test_on_response_can_override_response_body(req, plugins, fetchall):
-    class Plugin(object):
+async def test_on_response_can_override_response_body(app, req, fetchall):
 
-        def on_response(self, response, request, **kwargs):
-            return Response(b'on_response')
+    @app.listen('response')
+    async def on_response(response, request):
+        return b'on_response'
 
-    plugins(Plugin())
     fetchall([])
 
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.body == b'on_response'
 
 
 @pytest.mark.asyncio
-async def test_on_response_can_override_response_headers(req, plugins, fetchall):
-    class Plugin(object):
+async def test_on_response_can_override_response_headers(app, req, fetchall):
 
-        def on_response(self, response, request, **kwargs):
-            response.headers['Custom'] = 'OK'
+    @app.listen('response')
+    async def on_response(response, request, **kwargs):
+        response.headers['Custom'] = 'OK'
 
-    plugins(Plugin())
     fetchall([])
 
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.headers['Custom'] == 'OK'
 
@@ -76,24 +79,30 @@ async def test_on_response_can_override_response_headers(req, plugins, fetchall)
 @pytest.mark.asyncio
 async def test_cors_add_cors_headers(req, fetchall):
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.headers['Access-Control-Allow-Origin'] == '*'
 
 
 @pytest.mark.asyncio
-async def test_cors_can_be_changed_in_config(req, fetchall, config):
+async def test_cors_can_be_changed_in_config(app, req, fetchall, config):
     config.CORS = 'http://mydomain.org'
+    await app.startup()
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.headers['Access-Control-Allow-Origin'] == 'http://mydomain.org'
 
 
 @pytest.mark.asyncio
-async def test_cors_can_be_cancelled_in_config(req, fetchall, config):
+async def test_cors_can_be_cancelled_in_config(app, req, fetchall, config):
+    # cors has already been registered during app startup when loaded as
+    # fixture. Reset this.
+    app.hooks['response'] = []
     config.CORS = False
+    config.LOADED = False
+    await app.startup()
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0.pbf')
+    resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert 'Access-Control-Allow-Origin' not in resp.headers
