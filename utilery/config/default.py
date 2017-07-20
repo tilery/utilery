@@ -14,8 +14,6 @@ TILEJSON = {
         'http://vector.myserver.org/all/{z}/{x}/{y}.pbf'
     ],
 }
-BUILTIN_PLUGINS = ['utilery.plugins.builtins.CORS']
-PLUGINS = []
 DEBUG = False
 SRID = 900913
 SCALE = 1

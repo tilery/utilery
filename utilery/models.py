@@ -1,5 +1,6 @@
 import math
 
+from asyncpg.exceptions._base import PostgresError
 import mercantile
 import mapbox_vector_tile
 from mapbox_vector_tile.encoder import on_invalid_geometry_make_valid
@@ -57,7 +58,10 @@ class Query(dict):
 
 class Tile:
 
-    SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE ST_IsValid(way) AND ST_Intersects(way, {bbox})"  # noqa
+    __slots__ = ['zoom', 'x', 'y', 'ALL', 'names', 'west', 'east', 'south',
+                 'north', 'content', 'recipe', 'namespace', 'layers']
+
+    SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE {is_valid} ST_Intersects(way, {bbox})"  # noqa
     GEOMETRY = "{way}"
     RADIUS = 6378137
     CIRCUM = 2 * math.pi * RADIUS
@@ -103,19 +107,24 @@ class Tile:
             sql = self.sql(query)
             try:
                 rows = await DB.fetchall(sql, dbname=query.dbname)
-            except Exception as e:
+            except PostgresError as e:
                 msg = str(e)
                 if config.DEBUG:
                     msg = '{} ** Query was: {}'.format(msg, sql)
+                print(msg)
                 raise HttpError(500, msg)
             features += [self.to_feature(row, layer) for row in rows]
         return self.to_layer(layer, features)
 
     def sql(self, query):
+        bbox = ('ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}),'
+                'ST_MakePoint({east}, {north})), 3857)')
         srid = query.srid
-        bbox = 'ST_SetSRID(ST_MakeBox2D(ST_MakePoint({west}, {south}), ST_MakePoint({east}, {north})), {srid})'  # noqa
+        # mercantile gives spherical mercator bounds.
+        if str(srid) not in ['900913', '3857']:
+            bbox = 'ST_Transform({}, {})'.format(bbox, srid)
         bbox = bbox.format(west=self.west, south=self.south, east=self.east,
-                           north=self.north, srid=srid)
+                           north=self.north)
         pixel_width = self.CIRCUM / (self.SIZE * query.scale) / 2 ** self.zoom
         if query.buffer:
             units = query.buffer * pixel_width
@@ -127,7 +136,11 @@ class Tile:
         sql = query['sql'].replace('!bbox!', bbox)
         sql = sql.replace('!zoom!', str(self.zoom))
         sql = sql.replace('!pixel_width!', str(pixel_width))
-        return self.SQL_TEMPLATE.format(way=geometry, sql=sql, bbox=bbox)
+        tpl = self.SQL_TEMPLATE
+        is_valid = ''
+        if query.is_valid:
+            is_valid = 'ST_IsValid(way) AND'
+        return tpl.format(way=geometry, sql=sql, bbox=bbox, is_valid=is_valid)
 
     def to_layer(self, layer, features):
         return {
