@@ -55,6 +55,8 @@ class DB:
 async def startup():
     if config.CORS:
         cors(app, value=config.CORS)
+    if config.MAX_AGE:
+        cache(app, max_age=config.MAX_AGE)
     await DB.startup()
     await application.hook('before_load', config=config)
     recipes = config.RECIPES
@@ -69,6 +71,13 @@ async def startup():
 @app.listen('shutdown')
 async def shutdown():
     await DB.shutdown()
+
+
+def cache(app, max_age=3600):
+
+    @app.listen('response')
+    async def add_cors_headers(response, request):
+        response.headers['Cache-Control'] = 'max-age={}'.format(max_age)
 
 
 def load_recipe(data):

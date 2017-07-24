@@ -106,3 +106,35 @@ async def test_cors_can_be_cancelled_in_config(app, req, fetchall, config):
     resp = await req('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert 'Access-Control-Allow-Origin' not in resp.headers
+
+
+@pytest.mark.asyncio
+async def test_cache_add_cache_control_headers(req, fetchall):
+    fetchall([])
+    resp = await req('/default/mylayer/0/0/0/pbf')
+    assert resp.status == b'200 OK'
+    assert resp.headers['Cache-Control'] == 'max-age=3600'
+
+
+@pytest.mark.asyncio
+async def test_max_age_can_be_changed_in_config(app, req, fetchall, config):
+    config.MAX_AGE = 86400
+    await app.startup()
+    fetchall([])
+    resp = await req('/default/mylayer/0/0/0/pbf')
+    assert resp.status == b'200 OK'
+    assert resp.headers['Cache-Control'] == 'max-age=86400'
+
+
+@pytest.mark.asyncio
+async def test_cache_can_be_cancelled_in_config(app, req, fetchall, config):
+    # cors has already been registered during app startup when loaded as
+    # fixture. Reset this.
+    app.hooks['response'] = []
+    config.MAX_AGE = False
+    config.LOADED = False
+    await app.startup()
+    fetchall([])
+    resp = await req('/default/mylayer/0/0/0/pbf')
+    assert resp.status == b'200 OK'
+    assert 'Cache-Control' not in resp.headers

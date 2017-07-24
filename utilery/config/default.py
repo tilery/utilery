@@ -20,3 +20,4 @@ SCALE = 1
 BUFFER = 0
 CLIP = False
 CORS = '*'
+MAX_AGE = 3600
