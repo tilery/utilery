@@ -77,7 +77,7 @@ def cache(app, max_age=3600):
 
     @app.listen('response')
     async def add_cors_headers(response, request):
-        response.headers['Cache-Control'] = 'max-age={}'.format(max_age)
+        response.headers['Cache-Control'] = 'public,max-age={}'.format(max_age)
 
 
 def load_recipe(data):
