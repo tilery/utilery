@@ -14,56 +14,59 @@ async def on_load(config, recipes):
     config.LOAD = True
 
 
-def test_on_before_load(req, config):
+def test_on_before_load(client, config):
     assert config.BEFORE_LOAD
 
 
-def test_on_load(req, config):
+def test_on_load(client, config):
     assert config.LOAD
 
 
 @pytest.mark.asyncio
-async def test_on_request_can_return_content_only(app, req):
+async def test_on_request_can_return_content_only(app, client):
 
     @app.listen('request')
-    async def on_request(request):
+    async def on_request(request, response):
         assert request is not None
         assert request.path == '/default/mylayer/0/0/0/pbf'
-        return b'on_request'
+        response.body = b'on_request'
+        return True  # Shortcut request processing pipeline.
 
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.body == b'on_request'
 
 
 @pytest.mark.asyncio
-async def test_on_request_can_return_tuple(app, req):
+async def test_on_request_can_return_tuple(app, client):
 
     @app.listen('request')
-    async def on_request(request):
-        return '', 302, {'Location': 'http://somewhere-else.org'}
+    async def on_request(request, response):
+        response.status = 302
+        response.headers['Location'] = 'http://somewhere-else.org'
+        return True  # Shortcut request processing pipeline.
 
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'302 Found'
     assert resp.headers['Location'] == 'http://somewhere-else.org'
 
 
 @pytest.mark.asyncio
-async def test_on_response_can_override_response_body(app, req, fetchall):
+async def test_on_response_can_override_response_body(app, client, fetchall):
 
     @app.listen('response')
     async def on_response(response, request):
-        return b'on_response'
+        response.body = b'on_response'
 
     fetchall([])
 
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.body == b'on_response'
 
 
 @pytest.mark.asyncio
-async def test_on_response_can_override_response_headers(app, req, fetchall):
+async def test_on_response_can_override_headers(app, client, fetchall):
 
     @app.listen('response')
     async def on_response(response, request, **kwargs):
@@ -71,31 +74,31 @@ async def test_on_response_can_override_response_headers(app, req, fetchall):
 
     fetchall([])
 
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.headers['Custom'] == 'OK'
 
 
 @pytest.mark.asyncio
-async def test_cors_add_cors_headers(req, fetchall):
+async def test_cors_add_cors_headers(client, fetchall):
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.headers['Access-Control-Allow-Origin'] == '*'
 
 
 @pytest.mark.asyncio
-async def test_cors_can_be_changed_in_config(app, req, fetchall, config):
+async def test_cors_can_be_changed_in_config(app, client, fetchall, config):
     config.CORS = 'http://mydomain.org'
     await app.startup()
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert resp.headers['Access-Control-Allow-Origin'] == 'http://mydomain.org'
 
 
 @pytest.mark.asyncio
-async def test_cors_can_be_cancelled_in_config(app, req, fetchall, config):
+async def test_cors_can_be_cancelled_in_config(app, client, fetchall, config):
     # cors has already been registered during app startup when loaded as
     # fixture. Reset this.
     app.hooks['response'] = []
@@ -103,31 +106,31 @@ async def test_cors_can_be_cancelled_in_config(app, req, fetchall, config):
     config.LOADED = False
     await app.startup()
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert 'Access-Control-Allow-Origin' not in resp.headers
 
 
 @pytest.mark.asyncio
-async def test_cache_add_cache_control_headers(req, fetchall):
+async def test_cache_add_cache_control_headers(client, fetchall):
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
-    assert resp.headers['Cache-Control'] == 'max-age=3600'
+    assert resp.headers['Cache-Control'] == 'public,max-age=3600'
 
 
 @pytest.mark.asyncio
-async def test_max_age_can_be_changed_in_config(app, req, fetchall, config):
+async def test_max_age_can_be_changed_in_config(app, client, fetchall, config):
     config.MAX_AGE = 86400
     await app.startup()
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
-    assert resp.headers['Cache-Control'] == 'max-age=86400'
+    assert resp.headers['Cache-Control'] == 'public,max-age=86400'
 
 
 @pytest.mark.asyncio
-async def test_cache_can_be_cancelled_in_config(app, req, fetchall, config):
+async def test_cache_can_be_cancelled_in_config(app, client, fetchall, config):
     # cors has already been registered during app startup when loaded as
     # fixture. Reset this.
     app.hooks['response'] = []
@@ -135,6 +138,6 @@ async def test_cache_can_be_cancelled_in_config(app, req, fetchall, config):
     config.LOADED = False
     await app.startup()
     fetchall([])
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0/pbf')
     assert resp.status == b'200 OK'
     assert 'Cache-Control' not in resp.headers

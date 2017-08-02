@@ -4,7 +4,7 @@ import time
 
 import asyncpg
 from roll import Roll
-from roll.extensions import cors
+from roll.extensions import cors, traceback
 import yaml
 
 from . import config
@@ -21,7 +21,7 @@ RECIPES = {}
 
 
 app = application = Roll()
-
+traceback(app)
 
 class DB:
 

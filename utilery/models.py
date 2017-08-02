@@ -83,7 +83,7 @@ class Tile:
         self.recipe = RECIPES[namespace]
         self.namespace = namespace
 
-    async def __call__(self):
+    async def __call__(self, response):
         names = self.recipe.layers.keys() if self.ALL else self.names
         for name in names:
             if name not in self.recipe.layers:
@@ -92,7 +92,8 @@ class Tile:
             await self.process_layer(self.recipe.layers[name])
         self.post_process()
 
-        return self.content, 200, {'Content-Type': self.CONTENT_TYPE}
+        response.body = self.content
+        response.headers['Content-Type'] = self.CONTENT_TYPE
 
     async def process_layer(self, layer):
         layer_data = await self.query_layer(layer)
