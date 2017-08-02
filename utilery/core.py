@@ -1,11 +1,12 @@
 import logging
-from pathlib import Path
 import time
+from http import HTTPStatus
+from pathlib import Path
 
 import asyncpg
+import yaml
 from roll import Roll
 from roll.extensions import cors, traceback
-import yaml
 
 from . import config
 
@@ -77,7 +78,9 @@ def cache(app, max_age=3600):
 
     @app.listen('response')
     async def add_cors_headers(response, request):
-        response.headers['Cache-Control'] = 'public,max-age={}'.format(max_age)
+        if response.status == HTTPStatus.OK:
+            response.headers['Cache-Control'] = \
+                'public,max-age={}'.format(max_age)
 
 
 def load_recipe(data):
