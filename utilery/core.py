@@ -24,6 +24,7 @@ RECIPES = {}
 app = application = Roll()
 traceback(app)
 
+
 class DB:
 
     DEFAULT = "default"

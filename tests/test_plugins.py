@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import pytest
 
 from utilery.core import app
@@ -33,7 +35,7 @@ async def test_on_request_can_return_content_only(app, client):
         return True  # Shortcut request processing pipeline.
 
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert resp.body == b'on_request'
 
 
@@ -47,7 +49,7 @@ async def test_on_request_can_return_tuple(app, client):
         return True  # Shortcut request processing pipeline.
 
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'302 Found'
+    assert resp.status == HTTPStatus.FOUND
     assert resp.headers['Location'] == 'http://somewhere-else.org'
 
 
@@ -61,7 +63,7 @@ async def test_on_response_can_override_response_body(app, client, fetchall):
     fetchall([])
 
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert resp.body == b'on_response'
 
 
@@ -75,7 +77,7 @@ async def test_on_response_can_override_headers(app, client, fetchall):
     fetchall([])
 
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert resp.headers['Custom'] == 'OK'
 
 
@@ -83,7 +85,7 @@ async def test_on_response_can_override_headers(app, client, fetchall):
 async def test_cors_add_cors_headers(client, fetchall):
     fetchall([])
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert resp.headers['Access-Control-Allow-Origin'] == '*'
 
 
@@ -93,7 +95,7 @@ async def test_cors_can_be_changed_in_config(app, client, fetchall, config):
     await app.startup()
     fetchall([])
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert resp.headers['Access-Control-Allow-Origin'] == 'http://mydomain.org'
 
 
@@ -107,7 +109,7 @@ async def test_cors_can_be_cancelled_in_config(app, client, fetchall, config):
     await app.startup()
     fetchall([])
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert 'Access-Control-Allow-Origin' not in resp.headers
 
 
@@ -115,7 +117,8 @@ async def test_cors_can_be_cancelled_in_config(app, client, fetchall, config):
 async def test_cache_add_cache_control_headers(client, fetchall):
     fetchall([])
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
+    print(resp)
     assert resp.headers['Cache-Control'] == 'public,max-age=3600'
 
 
@@ -125,7 +128,7 @@ async def test_max_age_can_be_changed_in_config(app, client, fetchall, config):
     await app.startup()
     fetchall([])
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert resp.headers['Cache-Control'] == 'public,max-age=86400'
 
 
@@ -139,5 +142,5 @@ async def test_cache_can_be_cancelled_in_config(app, client, fetchall, config):
     await app.startup()
     fetchall([])
     resp = await client.get('/default/mylayer/0/0/0/pbf')
-    assert resp.status == b'200 OK'
+    assert resp.status == HTTPStatus.OK
     assert 'Cache-Control' not in resp.headers

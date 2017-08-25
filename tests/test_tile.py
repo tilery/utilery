@@ -1,12 +1,18 @@
 import pytest
 
 from utilery.models import PBF
+from roll import Response
 
 
 pytestmark = pytest.mark.asyncio
 
 
-async def test_simple_request(req, fetchall):
+@pytest.fixture
+def response():
+    return Response()
+
+
+async def test_simple_request(req, fetchall, response):
 
     def check_query(query, *args, **kwargs):
         assert 'SELECT' in query
@@ -15,10 +21,12 @@ async def test_simple_request(req, fetchall):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_does_not_request_if_lower_than_minzoom(req, fetchall, layer):
+async def test_does_not_request_if_lower_than_minzoom(req, fetchall, layer,
+                                                      response):
 
     layer['queries'].append({
         'sql': 'SELECT geometry AS way, type, name FROM youdontwantme',
@@ -30,10 +38,12 @@ async def test_does_not_request_if_lower_than_minzoom(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_does_not_request_if_higher_than_maxzoom(req, fetchall, layer):
+async def test_does_not_request_if_higher_than_maxzoom(req, fetchall, layer,
+                                                       response):
 
     layer['queries'].append({
         'sql': 'SELECT geometry AS way, type, name FROM youdontwantme',
@@ -45,10 +55,11 @@ async def test_does_not_request_if_higher_than_maxzoom(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=2, x=0, y=0)()
+    await PBF(names='all', z=2, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_can_change_srid(req, fetchall, layer):
+async def test_can_change_srid(req, fetchall, layer, response):
 
     layer['srid'] = 4326
 
@@ -58,10 +69,12 @@ async def test_can_change_srid(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_should_not_transform_900913_projection(req, fetchall, layer):
+async def test_should_not_transform_900913_projection(req, fetchall, layer,
+                                                      response):
 
     layer['srid'] = 900913
 
@@ -71,10 +84,12 @@ async def test_should_not_transform_900913_projection(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_should_not_transform_3857_projection(req, fetchall, layer):
+async def test_should_not_transform_3857_projection(req, fetchall, layer,
+                                                    response):
 
     layer['srid'] = 3857
 
@@ -83,10 +98,11 @@ async def test_should_not_transform_3857_projection(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_clip_when_asked(req, fetchall, layer):
+async def test_clip_when_asked(req, fetchall, layer, response):
 
     layer['clip'] = True
 
@@ -95,10 +111,11 @@ async def test_clip_when_asked(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_add_buffer_when_asked(req, fetchall, layer):
+async def test_add_buffer_when_asked(req, fetchall, layer, response):
 
     layer['buffer'] = 128
 
@@ -107,10 +124,11 @@ async def test_add_buffer_when_asked(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_no_buffer_by_default(req, fetchall, layer):
+async def test_no_buffer_by_default(req, fetchall, layer, response):
 
     layer['buffer'] = 0
 
@@ -119,10 +137,11 @@ async def test_no_buffer_by_default(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_filter_valid_when_asked(req, fetchall, layer):
+async def test_filter_valid_when_asked(req, fetchall, layer, response):
 
     layer['is_valid'] = True
 
@@ -131,10 +150,11 @@ async def test_filter_valid_when_asked(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
 
 
-async def test_do_not_filter_valid_by_default(req, fetchall, layer):
+async def test_do_not_filter_valid_by_default(req, fetchall, layer, response):
 
     layer['is_valid'] = False
 
@@ -143,4 +163,5 @@ async def test_do_not_filter_valid_by_default(req, fetchall, layer):
 
     fetchall([], check_query)
 
-    assert await PBF(names='all', z=0, x=0, y=0)()
+    await PBF(names='all', z=0, x=0, y=0)(response)
+    assert response.body
