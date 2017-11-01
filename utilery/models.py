@@ -61,7 +61,8 @@ class Tile:
     __slots__ = ['zoom', 'x', 'y', 'ALL', 'names', 'west', 'east', 'south',
                  'north', 'content', 'recipe', 'namespace', 'layers']
 
-    SQL_TEMPLATE = "SELECT {way}, * FROM ({sql}) AS data WHERE {is_valid} ST_Intersects(way, {bbox})"  # noqa
+    SQL_TEMPLATE = ("SELECT {way}, * FROM ({sql}) AS data WHERE {is_valid} "
+                    "ST_Intersects(way, {bbox})")
     GEOMETRY = "{way}"
     RADIUS = 6378137
     CIRCUM = 2 * math.pi * RADIUS

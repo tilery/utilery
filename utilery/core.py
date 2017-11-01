@@ -56,7 +56,7 @@ class DB:
 @app.listen('startup')
 async def startup():
     if config.CORS:
-        cors(app, value=config.CORS)
+        cors(app, origin=config.CORS)
     if config.MAX_AGE:
         cache(app, max_age=config.MAX_AGE)
     await DB.startup()
@@ -78,7 +78,7 @@ async def shutdown():
 def cache(app, max_age=3600):
 
     @app.listen('response')
-    async def add_cors_headers(response, request):
+    async def add_cors_headers(request, response):
         if response.status == HTTPStatus.OK:
             response.headers['Cache-Control'] = \
                 'public,max-age={}'.format(max_age)

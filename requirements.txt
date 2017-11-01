@@ -5,4 +5,3 @@ protobuf==3.4.0
 PyYAML==3.11
 roll==0.2.0
 ujson==1.35
-uvloop==0.8.0

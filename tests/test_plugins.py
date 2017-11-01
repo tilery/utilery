@@ -30,11 +30,11 @@ async def test_on_request_can_return_content_only(app, client):
     @app.listen('request')
     async def on_request(request, response):
         assert request is not None
-        assert request.path == '/default/mylayer/0/0/0/pbf'
+        assert request.path == '/default/mylayer/0/0/0.pbf'
         response.body = b'on_request'
         return True  # Shortcut request processing pipeline.
 
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert resp.body == b'on_request'
 
@@ -48,7 +48,7 @@ async def test_on_request_can_return_tuple(app, client):
         response.headers['Location'] = 'http://somewhere-else.org'
         return True  # Shortcut request processing pipeline.
 
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.FOUND
     assert resp.headers['Location'] == 'http://somewhere-else.org'
 
@@ -57,12 +57,12 @@ async def test_on_request_can_return_tuple(app, client):
 async def test_on_response_can_override_response_body(app, client, fetchall):
 
     @app.listen('response')
-    async def on_response(response, request):
+    async def on_response(request, response):
         response.body = b'on_response'
 
     fetchall([])
 
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert resp.body == b'on_response'
 
@@ -71,12 +71,12 @@ async def test_on_response_can_override_response_body(app, client, fetchall):
 async def test_on_response_can_override_headers(app, client, fetchall):
 
     @app.listen('response')
-    async def on_response(response, request, **kwargs):
+    async def on_response(request, response, **kwargs):
         response.headers['Custom'] = 'OK'
 
     fetchall([])
 
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert resp.headers['Custom'] == 'OK'
 
@@ -84,7 +84,7 @@ async def test_on_response_can_override_headers(app, client, fetchall):
 @pytest.mark.asyncio
 async def test_cors_add_cors_headers(client, fetchall):
     fetchall([])
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert resp.headers['Access-Control-Allow-Origin'] == '*'
 
@@ -94,7 +94,7 @@ async def test_cors_can_be_changed_in_config(app, client, fetchall, config):
     config.CORS = 'http://mydomain.org'
     await app.startup()
     fetchall([])
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert resp.headers['Access-Control-Allow-Origin'] == 'http://mydomain.org'
 
@@ -108,7 +108,7 @@ async def test_cors_can_be_cancelled_in_config(app, client, fetchall, config):
     config.LOADED = False
     await app.startup()
     fetchall([])
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert 'Access-Control-Allow-Origin' not in resp.headers
 
@@ -116,7 +116,7 @@ async def test_cors_can_be_cancelled_in_config(app, client, fetchall, config):
 @pytest.mark.asyncio
 async def test_cache_add_cache_control_headers(client, fetchall):
     fetchall([])
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     print(resp)
     assert resp.headers['Cache-Control'] == 'public,max-age=3600'
@@ -127,7 +127,7 @@ async def test_max_age_can_be_changed_in_config(app, client, fetchall, config):
     config.MAX_AGE = 86400
     await app.startup()
     fetchall([])
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert resp.headers['Cache-Control'] == 'public,max-age=86400'
 
@@ -141,6 +141,6 @@ async def test_cache_can_be_cancelled_in_config(app, client, fetchall, config):
     config.LOADED = False
     await app.startup()
     fetchall([])
-    resp = await client.get('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
     assert 'Cache-Control' not in resp.headers

@@ -9,54 +9,54 @@ from .utils import copy
 pytestmark = pytest.mark.asyncio
 
 
-async def test_simple_request(req, fetchall):
+async def test_simple_request(client, fetchall):
     fetchall([])
-    resp = await req('/all/0/0/0/pbf')
+    resp = await client.get('/all/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
 
 
-async def test_options(req, fetchall):
-    resp = await req('/all/0/0/0/pbf', method='OPTIONS')
+async def test_options(client, fetchall):
+    resp = await client.options('/all/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
 
 
-async def test_unknown_layer_returns_400(req):
-    resp = await req('/unknown/0/0/0/pbf')
+async def test_unknown_layer_returns_400(client):
+    resp = await client.get('/unknown/0/0/0.pbf')
     assert resp.status == HTTPStatus.BAD_REQUEST
 
 
-async def test_unknown_recipe_returns_400(req):
+async def test_unknown_recipe_returns_400(client):
 
-    resp = await req('/unknown/all/0/0/0/pbf')
+    resp = await client.get('/unknown/all/0/0/0.pbf')
     assert resp.status == HTTPStatus.BAD_REQUEST
 
 
-async def test_unknown_path_returns_404(req):
+async def test_unknown_path_returns_404(client):
 
-    resp = await req('/all/0/0/0.xyz')
+    resp = await client.get('/all/0/0/0.xyz')
     assert resp.status == HTTPStatus.NOT_FOUND
 
 
-async def test_can_request_one_layer(req, fetchall):
+async def test_can_request_one_layer(client, fetchall):
 
     def check_query(query, *args, **kwargs):
         assert 'SELECT' in query
 
     fetchall([], check_query)
 
-    resp = await req('/mylayer/0/0/0/pbf')
+    resp = await client.get('/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
 
 
-async def test_can_use_recipe_in_url(req, fetchall):
+async def test_can_use_recipe_in_url(client, fetchall):
 
     fetchall([])
 
-    resp = await req('/default/mylayer/0/0/0/pbf')
+    resp = await client.get('/default/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
 
 
-async def test_can_ask_for_specific_recipe_layers(req, fetchall, recipes):
+async def test_can_ask_for_specific_recipe_layers(client, fetchall, recipes):
 
     def check_query(query, *args, **kwargs):
         assert 'yetanother' in query
@@ -70,11 +70,11 @@ async def test_can_ask_for_specific_recipe_layers(req, fetchall, recipes):
     recipe['name'] = 'other'
     recipes['other'] = recipe
 
-    resp = await req('/other/mylayer/0/0/0/pbf')
+    resp = await client.get('/other/mylayer/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
 
 
-async def test_can_ask_several_layers(req, fetchall, recipes):
+async def test_can_ask_several_layers(client, fetchall, recipes):
 
     fetchall([])
     recipe = Recipe(copy(recipes['default']))
@@ -83,13 +83,13 @@ async def test_can_ask_several_layers(req, fetchall, recipes):
     recipe.layers['other'] = layer
     recipes['default'] = recipe
 
-    resp = await req('/mylayer+other/0/0/0/pbf')
+    resp = await client.get('/mylayer+other/0/0/0.pbf')
     assert resp.status == HTTPStatus.OK
 
 
-async def test_tilejson(req, config):
+async def test_tilejson(client, config):
     config.TILEJSON['name'] = "testname"
-    resp = await req('/tilejson/mvt.json')
+    resp = await client.get('/tilejson/mvt.json')
     assert resp.status == HTTPStatus.OK
     data = json.loads(resp.body)
     assert data['name'] == "testname"

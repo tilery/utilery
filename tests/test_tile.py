@@ -12,7 +12,7 @@ def response():
     return Response()
 
 
-async def test_simple_request(req, fetchall, response):
+async def test_simple_request(client, fetchall, response):
 
     def check_query(query, *args, **kwargs):
         assert 'SELECT' in query
@@ -25,7 +25,7 @@ async def test_simple_request(req, fetchall, response):
     assert response.body
 
 
-async def test_does_not_request_if_lower_than_minzoom(req, fetchall, layer,
+async def test_does_not_request_if_lower_than_minzoom(client, fetchall, layer,
                                                       response):
 
     layer['queries'].append({
@@ -42,7 +42,7 @@ async def test_does_not_request_if_lower_than_minzoom(req, fetchall, layer,
     assert response.body
 
 
-async def test_does_not_request_if_higher_than_maxzoom(req, fetchall, layer,
+async def test_does_not_request_if_higher_than_maxzoom(client, fetchall, layer,
                                                        response):
 
     layer['queries'].append({
@@ -59,7 +59,7 @@ async def test_does_not_request_if_higher_than_maxzoom(req, fetchall, layer,
     assert response.body
 
 
-async def test_can_change_srid(req, fetchall, layer, response):
+async def test_can_change_srid(client, fetchall, layer, response):
 
     layer['srid'] = 4326
 
@@ -73,7 +73,7 @@ async def test_can_change_srid(req, fetchall, layer, response):
     assert response.body
 
 
-async def test_should_not_transform_900913_projection(req, fetchall, layer,
+async def test_should_not_transform_900913_projection(client, fetchall, layer,
                                                       response):
 
     layer['srid'] = 900913
@@ -88,7 +88,7 @@ async def test_should_not_transform_900913_projection(req, fetchall, layer,
     assert response.body
 
 
-async def test_should_not_transform_3857_projection(req, fetchall, layer,
+async def test_should_not_transform_3857_projection(client, fetchall, layer,
                                                     response):
 
     layer['srid'] = 3857
@@ -102,7 +102,7 @@ async def test_should_not_transform_3857_projection(req, fetchall, layer,
     assert response.body
 
 
-async def test_clip_when_asked(req, fetchall, layer, response):
+async def test_clip_when_asked(client, fetchall, layer, response):
 
     layer['clip'] = True
 
@@ -115,7 +115,7 @@ async def test_clip_when_asked(req, fetchall, layer, response):
     assert response.body
 
 
-async def test_add_buffer_when_asked(req, fetchall, layer, response):
+async def test_add_buffer_when_asked(client, fetchall, layer, response):
 
     layer['buffer'] = 128
 
@@ -128,7 +128,7 @@ async def test_add_buffer_when_asked(req, fetchall, layer, response):
     assert response.body
 
 
-async def test_no_buffer_by_default(req, fetchall, layer, response):
+async def test_no_buffer_by_default(client, fetchall, layer, response):
 
     layer['buffer'] = 0
 
@@ -141,7 +141,7 @@ async def test_no_buffer_by_default(req, fetchall, layer, response):
     assert response.body
 
 
-async def test_filter_valid_when_asked(req, fetchall, layer, response):
+async def test_filter_valid_when_asked(client, fetchall, layer, response):
 
     layer['is_valid'] = True
 
@@ -154,7 +154,8 @@ async def test_filter_valid_when_asked(req, fetchall, layer, response):
     assert response.body
 
 
-async def test_do_not_filter_valid_by_default(req, fetchall, layer, response):
+async def test_do_not_filter_valid_by_default(client, fetchall, layer,
+                                              response):
 
     layer['is_valid'] = False
 
